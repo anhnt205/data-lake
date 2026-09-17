@@ -813,7 +813,11 @@ export const WareBatchDetailApprove: React.FC = () => {
 
   const formatVNDate = (iso?: string) => {
     if (!iso) return "-";
-    return new Date(iso + "Z").toLocaleString("vi-VN", {
+    const hasTimezone = iso.endsWith("Z") || /[+-]\d{2}(:\d{2})?$/.test(iso);
+    const isoStr = hasTimezone ? iso : `${iso}+07:00`;
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString("vi-VN", {
       timeZone: "Asia/Ho_Chi_Minh",
       day: "2-digit",
       month: "2-digit",
@@ -821,6 +825,7 @@ export const WareBatchDetailApprove: React.FC = () => {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
+      hour12: false,
     });
   };
 
