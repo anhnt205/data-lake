@@ -16,7 +16,7 @@ export interface KhoiDemGop {
   theo_trang_thai: DemTheoTrangThai;
 }
 
-export interface KhoiNguon extends KhoiDemGop {}
+export interface KhoiNguon extends KhoiDemGop { }
 
 export interface KhoiTiepNhan extends KhoiDemGop {
   trong_24h: number;

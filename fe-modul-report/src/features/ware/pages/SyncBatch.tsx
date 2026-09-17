@@ -411,9 +411,13 @@ export const SyncBatch: React.FC = () => {
       key: "createdAt",
       render: (text: string) => {
         if (!text) return <span className="text-gray-600">-</span>;
-        const formatted = new Date(text + "Z").toLocaleString("vi-VN", {
+
+        // Nối thêm +07:00 để trình duyệt hiểu đây là giờ Việt Nam
+        const dateString = text + "+07:00";
+        const formatted = new Date(dateString).toLocaleString("vi-VN", {
           timeZone: "Asia/Ho_Chi_Minh",
-        });;
+        });
+
         return <span className="text-gray-600">{formatted}</span>;
       },
     },
