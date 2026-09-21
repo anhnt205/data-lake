@@ -1043,6 +1043,8 @@ public class WareBatchService {
                     .batchName(batch.getName())
                     .batchDescription(batch.getDescription())
                     .createdAt(batch.getCreatedAt())
+                    .tableCode(batch.getWareTemplate() != null ? batch.getWareTemplate().getTableCode() : null)
+                    .reportName(batch.getWareTemplate() != null ? batch.getWareTemplate().getName() : null)
                     // Thời gian báo cáo
                     .reportYear(batch.getReportYear())
                     .reportMonth(batch.getReportMonth())

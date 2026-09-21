@@ -42,6 +42,7 @@ jobs:
           ls -al .env
           cat .env
           cp .env deployment/staging/
+          cp .env deployment/staging/deploy.env
 
       - name: Ensure target directory exists
         uses: appleboy/ssh-action@v0.1.10
@@ -60,7 +61,7 @@ jobs:
           username: ${{ secrets.STAGING_DUONGHUY_USER }}
           key: ${{ secrets.STAGING_DUONGHUY_SSH_KEY }}
           port: ${{ secrets.STAGING_DUONGHUY_PORT }}
-          source: deployment/staging/*
+          source: "deployment/staging/*,deployment/staging/.env"
           target: "/home/${{ secrets.STAGING_DUONGHUY_USER }}/data-lake/duonghuy/deployment/staging"
           strip_components: 2 # Removes "deployment/staging/" folder path!
 
@@ -74,9 +75,11 @@ jobs:
           script: |
             # Change to staging deployment directory
             cd /home/${{ secrets.STAGING_DUONGHUY_USER }}/data-lake/duonghuy/deployment/staging 
+            if [ -f deploy.env ]; then cp -f deploy.env .env; fi
             # Debug info
             pwd
             ls -al
+            cat .env
             docker image prune -f
             docker compose -f staging-docker-compose.yaml down # always down first
             docker ps
@@ -91,6 +94,8 @@ jobs:
           script: |
             ### Change to staging deployment directory
             cd /home/${{ secrets.STAGING_DUONGHUY_USER }}/data-lake/duonghuy/deployment/staging 
+            if [ -f deploy.env ]; then cp -f deploy.env .env; fi
+            cat .env
             ### Clean up unused images
             docker image prune -f # clean up unused images
             ### Provide permissions and start the application
