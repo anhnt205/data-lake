@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import com.quangnt0000.be_modul.modal.DataWH.UserPush;
+import com.quangnt0000.be_modul.repository.DataWH.UserPushRepository;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
@@ -36,6 +38,12 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class WareApiService {
+    private static final Set<String> AUDIT_FIELDS = Set.of(
+            "data_upload_id", "created_by", "created_at", "modified_by",
+            "modified_at", "syncdate", "version", "maxdate", "tenant_id",
+            "delete_flag", "is_deleted", "deleted_at"
+    );
+
     @Value("${account.username}")
     private String username;
     @Value("${account.password}")
@@ -44,6 +52,7 @@ public class WareApiService {
     private final WareBatchActionRepository wareBatchActionRepository;
     private final WareMappingRepository wareMappingRepository;
     private final WareTemplateRepository wareTemplateRepository;
+    private final UserPushRepository userPushRepository;
     private final WebClient webClient;
     private final WebClient dataLakeWebClient;
     private final VinacominApiClient vinacominApiClient;
@@ -54,6 +63,7 @@ public class WareApiService {
             WareBatchActionRepository wareBatchActionRepository,
             WareMappingRepository wareMappingRepository,
             WareTemplateRepository wareTemplateRepository,
+            UserPushRepository userPushRepository,
             @Qualifier("vinacominWebClient") WebClient webClient,
             @Qualifier("dataLakeWebClient") WebClient dataLakeWebClient,
             VinacominApiClient vinacominApiClient,
@@ -63,6 +73,7 @@ public class WareApiService {
         this.wareBatchActionRepository = wareBatchActionRepository;
         this.wareMappingRepository = wareMappingRepository;
         this.wareTemplateRepository = wareTemplateRepository;
+        this.userPushRepository = userPushRepository;
         this.webClient = webClient;
         this.dataLakeWebClient = dataLakeWebClient;
         this.vinacominApiClient = vinacominApiClient;
@@ -255,12 +266,27 @@ public class WareApiService {
 
     public ResponseEntity<Object> get(@Valid GetRequest request) {
         try {
+            String authUsername = this.username;
+            String authPassword = this.password;
+            try {
+                List<UserPush> userPushes = userPushRepository.findAll();
+                if (userPushes != null && !userPushes.isEmpty()) {
+                    UserPush up = userPushes.get(0);
+                    if (up.getUsername() != null && !up.getUsername().isBlank()) {
+                        authUsername = up.getUsername();
+                        authPassword = up.getPassword();
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Could not load user_push, falling back to properties: {}", e.getMessage());
+            }
+
             LoginResponse loginResponse = login(LoginRequest.builder()
-                    .username(username)
-                    .password(password)
+                    .username(authUsername)
+                    .password(authPassword)
                     .ttlSeconds(3600)
                     .build()).getBody();
-            String token = loginResponse.getAccessToken();
+            String token = loginResponse != null ? loginResponse.getAccessToken() : null;
             boolean aggregationReport = isAggregationReport(request);
             Map<String, Object> filters = buildReportFilters(request);
             String filtersJson;
@@ -284,15 +310,16 @@ public class WareApiService {
                     "Bearer " + token
             );
             // Transform fieldName to fieldTitle based on table name
-            if (request.getTable() != null && response.getRows() != null) {
+            if (request.getTable() != null && response != null && response.getRows() != null) {
                 // Find WareTemplate by table code
                 Optional<WareTemplate> optionalTemplate = wareTemplateRepository.findFirstByTableCodeOrderByCreatedAtDesc(request.getTable());
                 
                 if (optionalTemplate.isPresent()) {
                     WareTemplate wareTemplate = optionalTemplate.get();
-                    List<WareMapping> mappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
+                    List<WareMapping> rawMappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
+                    final List<WareMapping> mappings = rawMappings;
                     
-                    if (!mappings.isEmpty()) {
+                    if (mappings != null && !mappings.isEmpty()) {
                         if (aggregationReport) {
                             response.setRows(aggregationEngine.aggregate(response.getRows(), mappings, request.getReportType()));
                             response.setTotal(response.getRows().size());
@@ -300,6 +327,7 @@ public class WareApiService {
 
                         // Create a map of fieldName (lowercase) -> WareMapping for lookup
                         Map<String, WareMapping> fieldNameToMappingMap = mappings.stream()
+                                .filter(m -> m.getFieldName() != null && !m.getFieldName().isBlank())
                                 .collect(Collectors.toMap(
                                         mapping -> mapping.getFieldName().toLowerCase(),
                                         mapping -> mapping,
@@ -315,12 +343,13 @@ public class WareApiService {
                                     
                                     // First, add fields in the order of mappings
                                     for (WareMapping mapping : mappings) {
+                                        if (mapping.getFieldName() == null || mapping.getFieldName().isBlank()) continue;
                                         String fieldNameLower = mapping.getFieldName().toLowerCase();
                                         // Find the key in row that matches (case-insensitive)
                                         for (Map.Entry<String, Object> entry : row.entrySet()) {
-                                            if (entry.getKey().toLowerCase().equals(fieldNameLower)) {
+                                            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(fieldNameLower)) {
                                                 // Use fieldTitle if not null, otherwise use original fieldName
-                                                String key = mapping.getFieldTitle() != null && !mapping.getFieldTitle().isEmpty() 
+                                                String key = mapping.getFieldTitle() != null && !mapping.getFieldTitle().trim().isEmpty() 
                                                     ? mapping.getFieldTitle() 
                                                     : mapping.getFieldName();
                                                 transformedRow.put(key, entry.getValue());
@@ -330,9 +359,11 @@ public class WareApiService {
                                     }
                                     
                                     if (includeUnmappedFields) {
-                                        // Then, add any remaining fields that weren't in mappings
+                                        // Then, add any remaining fields that weren't in mappings and not in AUDIT_FIELDS
                                         row.forEach((key, value) -> {
-                                            if (!fieldNameToMappingMap.containsKey(key.toLowerCase())) {
+                                            if (key != null 
+                                                    && !fieldNameToMappingMap.containsKey(key.toLowerCase())
+                                                    && !AUDIT_FIELDS.contains(key.toLowerCase())) {
                                                 transformedRow.put(key, value);
                                             }
                                         });

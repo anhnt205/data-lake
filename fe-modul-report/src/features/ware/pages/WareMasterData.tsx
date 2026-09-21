@@ -33,8 +33,13 @@ const SearchMasterData = () => {
 
   // Đồng bộ table và tmplName khi URL params thay đổi
   useEffect(() => {
-    setTable(searchParams.get("table") || "");
-    setTmplName(searchParams.get("tmpl") || "");
+    const urlTable = searchParams.get("table") || "";
+    const urlTmpl = searchParams.get("tmpl") || "";
+    setTable(urlTable);
+    setTmplName(urlTmpl);
+    if (urlTable) {
+      void handleSearch(urlTable);
+    }
   }, [searchParams]);
 
   const handleSearch = async (tableOverride?: string) => {
@@ -43,7 +48,7 @@ const SearchMasterData = () => {
     // Cập nhật report header — bao gồm tmplName
     setReportHeader({
       tableName: tableToSearch,
-      tmplName: tmplName,
+      tmplName: searchParams.get("tmpl") || tmplName,
       year: year,
       period: period,
       day: day,

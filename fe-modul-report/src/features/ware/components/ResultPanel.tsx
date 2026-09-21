@@ -14,7 +14,7 @@ interface ResultPanelProps {
   reportHeader?: ReportHeader;
 }
 
-// Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header)
+// Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header hoặc trường hệ thống)
 const META_COLUMNS = [
   "Mã công ty",
   "mã đơn vị",
@@ -22,7 +22,6 @@ const META_COLUMNS = [
   "tháng",
   "ngày",
   "loại dữ liệu",
-  "năm",
   "period",
   "ngay",
   "day",
@@ -30,6 +29,18 @@ const META_COLUMNS = [
   "data_type",
   "loai_du_lieu",
   "ma_don_vi",
+  "bukrs",
+  "data_upload_id",
+  "created_by",
+  "created_at",
+  "modified_by",
+  "modified_at",
+  "syncdate",
+  "version",
+  "maxdate",
+  "tenant_id",
+  "delete_flag",
+  "is_deleted",
 ];
 
 const PRIORITY_COLUMNS = [

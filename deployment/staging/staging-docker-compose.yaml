@@ -3,7 +3,7 @@ services:
     image: ${REGISTRY}/report_reverse_proxy_img:${VERSION}
     ports:
       # HOST_PORT:CONTAINER_PORT
-      - "6363:8888"
+      - "6655:8888"
     stdin_open: true
     environment:
       - TZ=Asia/Ho_Chi_Minh

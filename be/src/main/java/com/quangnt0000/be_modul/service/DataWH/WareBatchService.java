@@ -585,8 +585,14 @@ public class WareBatchService {
             WareDataRow firstRow = wareDataRows.get(0);
             Map<String, Object> rowData = firstRow.getData();
 
+            Set<String> excludedAudit = Set.of(
+                    "DATA_UPLOAD_ID", "CREATED_BY", "CREATED_AT",
+                    "MODIFIED_BY", "MODIFIED_AT", "SYNCDATE", "VERSION", "MAXDATE"
+            );
             for (WareMapping m : filters) {
+                if (Boolean.TRUE.equals(m.getDeleted())) continue;
                 String key = m.getFieldName();
+                if (key == null || excludedAudit.contains(key.toUpperCase())) continue;
                 Object value = rowData.get(key);
                 filter.put(key, value);
             }
