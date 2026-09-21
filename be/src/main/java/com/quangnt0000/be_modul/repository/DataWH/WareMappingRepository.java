@@ -12,6 +12,8 @@ import java.util.List;
 public interface WareMappingRepository extends JpaRepository<WareMapping, Integer> {
     List<WareMapping> findByWareTemplate_IdOrderByIdAsc(Integer wareTemplateId);
 
+    List<WareMapping> findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(Integer wareTemplateId);
+
 
 
     @Query("SELECT wm FROM WareMapping wm " +

@@ -57,6 +57,26 @@ public class WareBatchService {
     // FormulaEvaluator để xử lý công thức Excel
     private FormulaEvaluator formulaEvaluator;
 
+    private static final Set<String> IGNORED_AUDIT_FIELDS = Set.of(
+            "MODIFIED_BY", "CREATED_AT", "DATA_UPLOAD_ID",
+            "MODIFIED_AT", "MAXDATE", "CREATED_BY", "SYNCDATE"
+    );
+
+    private static boolean isIgnoredScopeFilter(String fieldName) {
+        if (fieldName == null || fieldName.trim().isEmpty()) {
+            return true;
+        }
+        String trimmed = fieldName.trim();
+        if (IGNORED_AUDIT_FIELDS.contains(trimmed.toUpperCase())) {
+            return true;
+        }
+        // TYPE_DATA viết hoa không phải là cột scope_filter hợp lệ trên Vinacomin (Vinacomin dùng 'type_data' viết thường)
+        if ("TYPE_DATA".equals(trimmed)) {
+            return true;
+        }
+        return false;
+    }
+
     @Transactional
     public ResponseEntity<?> addWareBatch(WareBatchRequest request) {
         WareTemplate wareTemplate = wareTemplateRepository.findById(request.getWareTemplateId())
@@ -65,10 +85,12 @@ public class WareBatchService {
         User user = userRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "user not found"));
 
-        // Lấy danh sách mapping trực tiếp từ repository để đảm bảo dữ liệu mới nhất
-        List<WareMapping> wareMappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
+        // Lấy danh sách mapping trực tiếp từ repository để đảm bảo dữ liệu mới nhất (chỉ lấy mapping chưa xóa)
+        List<WareMapping> wareMappings = wareMappingRepository.findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(wareTemplate.getId());
         if (wareMappings == null || wareMappings.isEmpty()) {
-            wareMappings = wareTemplate.getWareMappings();
+            wareMappings = wareTemplate.getWareMappings().stream()
+                    .filter(m -> !Boolean.TRUE.equals(m.getDeleted()))
+                    .toList();
         }
 
         try {
@@ -682,23 +704,47 @@ public class WareBatchService {
 
         List<WareDataRow> wareDataRows = wareDataRowService.getByBatchId(request.getId());
 
-        List<WareMapping> filters = wareBatch.getWareTemplate().getWareMappings().stream()
-                .filter(WareMapping::getIsScopFilter)
+        Integer templateId = wareBatch.getWareTemplate().getId();
+        List<WareMapping> allMappings = wareMappingRepository.findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(templateId);
+        if (allMappings == null || allMappings.isEmpty()) {
+            allMappings = wareBatch.getWareTemplate().getWareMappings().stream()
+                    .filter(m -> !Boolean.TRUE.equals(m.getDeleted()))
+                    .toList();
+        }
+
+        List<WareMapping> filters = allMappings.stream()
+                .filter(m -> Boolean.TRUE.equals(m.getIsScopFilter()))
+                .filter(m -> !isIgnoredScopeFilter(m.getFieldName()))
                 .toList();
-        List<String> keyColumns = new ArrayList<>(wareBatch.getWareTemplate().getWareMappings().stream()
-                .filter(WareMapping::getIsKeyColumn)
+
+        List<String> keyColumns = new ArrayList<>(allMappings.stream()
+                .filter(m -> Boolean.TRUE.equals(m.getIsKeyColumn()))
                 .map(WareMapping::getFieldName)
+                .filter(name -> name != null && !name.isBlank() && !isIgnoredScopeFilter(name))
+                .distinct()
                 .toList());
-        keyColumns.add("ID");
+        if (!keyColumns.contains("ID")) {
+            keyColumns.add("ID");
+        }
+
         Map<String, Object> filter = new HashMap<>();
         if (!wareDataRows.isEmpty()) {
             WareDataRow firstRow = wareDataRows.get(0);
             Map<String, Object> rowData = firstRow.getData();
 
-            for (WareMapping m : filters) {
-                String key = m.getFieldName();
-                Object value = rowData.get(key);
-                filter.put(key, value);
+            if (rowData != null) {
+                for (WareMapping m : filters) {
+                    String key = m.getFieldName();
+                    if (isIgnoredScopeFilter(key)) {
+                        continue;
+                    }
+                    if (rowData.containsKey(key)) {
+                        Object value = rowData.get(key);
+                        if (value != null && !value.toString().trim().isEmpty()) {
+                            filter.put(key, value);
+                        }
+                    }
+                }
             }
         }
 
@@ -884,11 +930,18 @@ public class WareBatchService {
                         new ResponseStatusException(HttpStatus.BAD_REQUEST, "batch not found")
                 );
 
-        List<String> mapFilters = wareBatch.getWareTemplate()
-                .getWareMappings()
-                .stream()
-                .filter(WareMapping::getIsScopFilter)
-                .map(WareMapping::getFieldName) // <-- List<String>
+        Integer templateId = wareBatch.getWareTemplate().getId();
+        List<WareMapping> allMappings = wareMappingRepository.findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(templateId);
+        if (allMappings == null || allMappings.isEmpty()) {
+            allMappings = wareBatch.getWareTemplate().getWareMappings().stream()
+                    .filter(m -> !Boolean.TRUE.equals(m.getDeleted()))
+                    .toList();
+        }
+
+        List<String> mapFilters = allMappings.stream()
+                .filter(m -> Boolean.TRUE.equals(m.getIsScopFilter()))
+                .map(WareMapping::getFieldName)
+                .filter(name -> !isIgnoredScopeFilter(name))
                 .toList();
 
         Map<String, Object> data =
@@ -896,11 +949,13 @@ public class WareBatchService {
 
         Map<String, Object> filters = new HashMap<>();
 
-        for (String fieldName : mapFilters) {
-            if (data.containsKey(fieldName)) {
-                Object value = data.get(fieldName);
-                if (value != null) {
-                    filters.put(fieldName, value);
+        if (data != null) {
+            for (String fieldName : mapFilters) {
+                if (data.containsKey(fieldName)) {
+                    Object value = data.get(fieldName);
+                    if (value != null && !value.toString().trim().isEmpty()) {
+                        filters.put(fieldName, value);
+                    }
                 }
             }
         }

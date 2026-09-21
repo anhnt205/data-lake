@@ -31,6 +31,19 @@ public class WareMappingSyncService {
     private final WareMappingRepository wareMappingRepository;
     private final WareTemplateRepository wareTemplateRepository;
 
+    private static final Set<String> IGNORED_AUDIT_FIELDS = Set.of(
+            "MODIFIED_BY", "CREATED_AT", "DATA_UPLOAD_ID",
+            "MODIFIED_AT", "MAXDATE", "CREATED_BY", "SYNCDATE"
+    );
+
+    private static boolean isIgnoredField(String fieldName) {
+        if (fieldName == null || fieldName.trim().isEmpty()) {
+            return true;
+        }
+        String trimmed = fieldName.trim();
+        return IGNORED_AUDIT_FIELDS.contains(trimmed.toUpperCase()) || "TYPE_DATA".equals(trimmed);
+    }
+
     @Transactional
     public void syncMappings(WareTemplate template, String connectionId) {
         if (template == null) {
@@ -183,6 +196,9 @@ public class WareMappingSyncService {
                     String fieldNameKey = remote.fieldName.toLowerCase();
                     remoteFields.add(fieldNameKey);
 
+                    boolean isScope = Boolean.TRUE.equals(remote.isScopFilter) && !isIgnoredField(remote.fieldName);
+                    boolean isKey = Boolean.TRUE.equals(remote.isKeyColumn) && !isIgnoredField(remote.fieldName);
+
                     WareMapping localMapping = localMap.get(fieldNameKey);
                     if (localMapping != null) {
                         // Update existing mapping
@@ -191,8 +207,8 @@ public class WareMappingSyncService {
                         localMapping.setFieldTitle(remote.fieldTitle);
                         localMapping.setFieldType(remote.fieldType);
                         localMapping.setFieldValue(remote.fieldValue);
-                        localMapping.setIsKeyColumn(remote.isKeyColumn);
-                        localMapping.setIsScopFilter(remote.isScopFilter);
+                        localMapping.setIsKeyColumn(isKey);
+                        localMapping.setIsScopFilter(isScope);
                         localMapping.setIsSummable(remote.isSummable);
                         localMapping.setRole(remote.role);
                         localMapping.setAggregateType(remote.aggregateType);
@@ -206,8 +222,8 @@ public class WareMappingSyncService {
                                 .fieldTitle(remote.fieldTitle)
                                 .fieldType(remote.fieldType)
                                 .fieldValue(remote.fieldValue)
-                                .isKeyColumn(remote.isKeyColumn)
-                                .isScopFilter(remote.isScopFilter)
+                                .isKeyColumn(isKey)
+                                .isScopFilter(isScope)
                                 .isSummable(remote.isSummable)
                                 .role(remote.role)
                                 .aggregateType(remote.aggregateType)

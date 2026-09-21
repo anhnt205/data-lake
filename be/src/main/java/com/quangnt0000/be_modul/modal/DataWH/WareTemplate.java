@@ -44,6 +44,7 @@ public class WareTemplate {
     private List<WareBatch> wareBatches;
 
     @OneToMany(mappedBy = "wareTemplate")
+    @org.hibernate.annotations.SQLRestriction("deleted = false")
     private List<WareMapping> wareMappings;
     //base
     @Builder.Default
