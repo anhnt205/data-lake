@@ -324,10 +324,11 @@ public class WareApiService {
                 
                 if (optionalTemplate.isPresent()) {
                     WareTemplate wareTemplate = optionalTemplate.get();
-                    List<WareMapping> mappings = wareMappingRepository.findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(wareTemplate.getId());
-                    if (mappings == null || mappings.isEmpty()) {
-                        mappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
+                    List<WareMapping> rawMappings = wareMappingRepository.findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(wareTemplate.getId());
+                    if (rawMappings == null || rawMappings.isEmpty()) {
+                        rawMappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
                     }
+                    final List<WareMapping> mappings = rawMappings;
                     
                     if (mappings != null && !mappings.isEmpty()) {
                         if (aggregationReport) {
