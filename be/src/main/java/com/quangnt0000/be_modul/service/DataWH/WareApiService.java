@@ -38,6 +38,12 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class WareApiService {
+    private static final Set<String> AUDIT_FIELDS = Set.of(
+            "data_upload_id", "created_by", "created_at", "modified_by",
+            "modified_at", "syncdate", "version", "maxdate", "tenant_id",
+            "delete_flag", "is_deleted", "deleted_at"
+    );
+
     @Value("${account.username}")
     private String username;
     @Value("${account.password}")
@@ -367,9 +373,11 @@ public class WareApiService {
                                         }
                                     }
                                     
-                                    // Then, add any remaining fields that weren't in mappings
+                                    // Then, add any remaining fields that weren't in mappings and not in AUDIT_FIELDS
                                     row.forEach((key, value) -> {
-                                        if (key != null && !fieldNameToMappingMap.containsKey(key.toLowerCase())) {
+                                        if (key != null 
+                                                && !fieldNameToMappingMap.containsKey(key.toLowerCase())
+                                                && !AUDIT_FIELDS.contains(key.toLowerCase())) {
                                             transformedRow.putIfAbsent(key, value);
                                         }
                                     });

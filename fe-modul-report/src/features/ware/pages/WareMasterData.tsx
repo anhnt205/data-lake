@@ -37,9 +37,8 @@ const SearchMasterData = () => {
   const stateRef = useRef({ year, period, day, reportType });
   stateRef.current = { year, period, day, reportType };
 
-  const handleSearch = useCallback(async (tableOverride?: string, tmplOverride?: string) => {
+  const handleSearch = useCallback(async (tableOverride?: string) => {
     const tableToSearch = tableOverride !== undefined ? tableOverride : table;
-    const tmplToSearch = tmplOverride !== undefined ? tmplOverride : tmplName;
 
     if (!tableToSearch) {
       message.warning("Vui lòng chọn bảng dữ liệu hoặc báo cáo cần xem");
@@ -51,7 +50,7 @@ const SearchMasterData = () => {
     // Cập nhật report header — bao gồm tmplName
     setReportHeader({
       tableName: tableToSearch,
-      tmplName: tmplToSearch,
+      tmplName: tmplName,
       year: curYear,
       period: curPeriod,
       day: curDay,
@@ -146,7 +145,7 @@ const SearchMasterData = () => {
     setTmplName(urlTmpl);
 
     if (urlTable) {
-      handleSearch(urlTable, urlTmpl);
+      handleSearch(urlTable);
     }
   }, [searchParams]);
 
@@ -155,8 +154,6 @@ const SearchMasterData = () => {
       <NavbarSearch
         table={table}
         setTable={setTable}
-        tmplName={tmplName}
-        setTmplName={setTmplName}
         year={year}
         setYear={setYear}
         period={period}

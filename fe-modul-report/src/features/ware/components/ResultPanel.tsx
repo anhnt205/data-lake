@@ -15,7 +15,7 @@ interface ResultPanelProps {
   loading?: boolean;
 }
 
-// Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header)
+// Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header hoặc trường hệ thống)
 const META_COLUMNS = [
   "Mã công ty",
   "mã đơn vị",
@@ -23,7 +23,6 @@ const META_COLUMNS = [
   "tháng",
   "ngày",
   "loại dữ liệu",
-  "năm",
   "period",
   "ngay",
   "day",
@@ -31,6 +30,15 @@ const META_COLUMNS = [
   "data_type",
   "loai_du_lieu",
   "ma_don_vi",
+  "bukrs",
+  "data_upload_id",
+  "created_by",
+  "created_at",
+  "modified_by",
+  "modified_at",
+  "syncdate",
+  "version",
+  "maxdate",
 ];
 
 const PRIORITY_COLUMNS = [
@@ -210,7 +218,7 @@ const ResultPanel = ({ results, reportHeader, loading = false }: ResultPanelProp
         {/* Tên công ty - căn giữa */}
         <div className="text-center mb-1 print:mb-0.5">
           <div className="font-bold text-sm print:text-xs tracking-wide text-gray-700">
-            CÔNG TY THAN ĐÈO NAI - CỌC SÁU - TKV
+            CÔNG TY THAN DƯƠNG HUY - TKV
           </div>
         </div>
 
