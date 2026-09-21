@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { message } from "antd";
 import type { GetRequest, GetResponse } from "../types/getMaster";
 import { wareTkvApi } from "../api/wareTkvApi";
 import NavbarSearch from "../components/NavbarSearch";
 import ResultPanel from "../components/ResultPanel";
 
-interface ReportHeader {
+export interface ReportHeader {
   tableName?: string;
   tmplName?: string; // Tên template hiển thị trên header
   year?: number;
@@ -30,38 +31,45 @@ const SearchMasterData = () => {
 
   const [results, setResults] = useState<any[]>([]);
   const [reportHeader, setReportHeader] = useState<ReportHeader>({});
+  const [loading, setLoading] = useState(false);
 
-  // Đồng bộ table và tmplName khi URL params thay đổi
-  useEffect(() => {
-    setTable(searchParams.get("table") || "");
-    setTmplName(searchParams.get("tmpl") || "");
-  }, [searchParams]);
+  // Keep ref to avoid stale closures in handleSearch
+  const stateRef = useRef({ year, period, day, reportType });
+  stateRef.current = { year, period, day, reportType };
 
-  const handleSearch = async (tableOverride?: string) => {
-    const tableToSearch = tableOverride || table;
+  const handleSearch = useCallback(async (tableOverride?: string, tmplOverride?: string) => {
+    const tableToSearch = tableOverride !== undefined ? tableOverride : table;
+    const tmplToSearch = tmplOverride !== undefined ? tmplOverride : tmplName;
+
+    if (!tableToSearch) {
+      message.warning("Vui lòng chọn bảng dữ liệu hoặc báo cáo cần xem");
+      return;
+    }
+
+    const { year: curYear, period: curPeriod, day: curDay, reportType: curReportType } = stateRef.current;
 
     // Cập nhật report header — bao gồm tmplName
     setReportHeader({
       tableName: tableToSearch,
-      tmplName: tmplName,
-      year: year,
-      period: period,
-      day: day,
-      reportType: reportType,
+      tmplName: tmplToSearch,
+      year: curYear,
+      period: curPeriod,
+      day: curDay,
+      reportType: curReportType,
     });
 
     const buildFilters = (dayKey?: "DAY" | "NGAY") => {
       const nextFilters: Record<string, any> = {};
-      if (year) nextFilters["YEAR"] = year;
-      if (period) nextFilters["PERIOD"] = period;
-      if (day && dayKey) nextFilters[dayKey] = day;
+      if (curYear) nextFilters["YEAR"] = curYear;
+      if (curPeriod) nextFilters["PERIOD"] = curPeriod;
+      if (curDay && dayKey) nextFilters[dayKey] = curDay;
       return Object.keys(nextFilters).length ? nextFilters : undefined;
     };
 
     const buildReportFilters = (type: "MONTH" | "YEAR") => {
       const nextFilters: Record<string, any> = {};
-      if (year) nextFilters["YEAR"] = year;
-      if (type === "MONTH" && period) nextFilters["PERIOD"] = period;
+      if (curYear) nextFilters["YEAR"] = curYear;
+      if (type === "MONTH" && curPeriod) nextFilters["PERIOD"] = curPeriod;
       return Object.keys(nextFilters).length ? nextFilters : undefined;
     };
 
@@ -76,25 +84,26 @@ const SearchMasterData = () => {
       filters,
     });
 
+    setLoading(true);
     try {
       setResults([]);
 
-      if (reportType === "MONTH" || reportType === "YEAR") {
+      if (curReportType === "MONTH" || curReportType === "YEAR") {
         const res: GetResponse = await wareTkvApi.searchTkv(
-          buildRequest(buildReportFilters(reportType), reportType)
+          buildRequest(buildReportFilters(curReportType), curReportType)
         );
-        setResults(res.rows || []);
+        setResults(res?.rows || []);
         return;
       }
 
       // Có filter ngày: ưu tiên DAY, nếu không có thì fallback sang NGAY
-      if (day) {
+      if (curDay) {
         try {
           const resByDay: GetResponse = await wareTkvApi.searchTkv(
             buildRequest(buildFilters("DAY"))
           );
 
-          if ((resByDay.rows?.length || 0) > 0) {
+          if ((resByDay?.rows?.length || 0) > 0) {
             setResults(resByDay.rows || []);
             return;
           }
@@ -102,14 +111,14 @@ const SearchMasterData = () => {
           const resByNgay: GetResponse = await wareTkvApi.searchTkv(
             buildRequest(buildFilters("NGAY"))
           );
-          setResults(resByNgay.rows || []);
+          setResults(resByNgay?.rows || []);
           return;
         } catch (dayError) {
           console.warn("Search by DAY failed, fallback to NGAY", dayError);
           const resByNgay: GetResponse = await wareTkvApi.searchTkv(
             buildRequest(buildFilters("NGAY"))
           );
-          setResults(resByNgay.rows || []);
+          setResults(resByNgay?.rows || []);
           return;
         }
       }
@@ -117,18 +126,37 @@ const SearchMasterData = () => {
       const res: GetResponse = await wareTkvApi.searchTkv(
         buildRequest(buildFilters())
       );
-      setResults(res.rows || []);
-    } catch (err) {
-      console.error(err);
+      setResults(res?.rows || []);
+    } catch (err: any) {
+      console.error("Lỗi khi tải dữ liệu báo cáo:", err);
+      const errMsg = err?.response?.data?.message || err?.message || "Không thể tải dữ liệu báo cáo từ máy chủ";
+      message.error(errMsg);
       setResults([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [table, tmplName]);
+
+  // Đồng bộ table và tmplName khi URL params thay đổi và TỰ ĐỘNG TẢI DỮ LIỆU
+  useEffect(() => {
+    const urlTable = searchParams.get("table") || "";
+    const urlTmpl = searchParams.get("tmpl") || "";
+
+    setTable(urlTable);
+    setTmplName(urlTmpl);
+
+    if (urlTable) {
+      handleSearch(urlTable, urlTmpl);
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
       <NavbarSearch
         table={table}
         setTable={setTable}
+        tmplName={tmplName}
+        setTmplName={setTmplName}
         year={year}
         setYear={setYear}
         period={period}
@@ -137,11 +165,12 @@ const SearchMasterData = () => {
         setDay={setDay}
         reportType={reportType}
         setReportType={setReportType}
+        loading={loading}
         onSearch={handleSearch}
       />
 
       <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
-        <ResultPanel results={results} reportHeader={reportHeader} />
+        <ResultPanel results={results} reportHeader={reportHeader} loading={loading} />
       </main>
     </div>
   );

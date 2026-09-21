@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -13,6 +13,7 @@ import {
 import {
   SearchOutlined,
   TableOutlined,
+  SwapOutlined,
 } from "@ant-design/icons";
 import type { TableOption } from "../types/wareTemplate";
 import { wareTemplateApi } from "../api/wareTemplateApi";
@@ -20,6 +21,8 @@ import { wareTemplateApi } from "../api/wareTemplateApi";
 interface NavbarSearchProps {
   table: string;
   setTable: (val: string) => void;
+  tmplName?: string;
+  setTmplName?: (val: string) => void;
   year?: number;
   setYear: (val?: number) => void;
   period?: string;
@@ -28,12 +31,15 @@ interface NavbarSearchProps {
   setDay: (val?: string) => void;
   reportType?: "MONTH" | "YEAR";
   setReportType: (val?: "MONTH" | "YEAR") => void;
-  onSearch: (tableOverride?: string) => Promise<void>;
+  loading?: boolean;
+  onSearch: (tableOverride?: string, tmplOverride?: string) => Promise<void>;
 }
 
 const NavbarSearch = ({
   table,
   setTable,
+  tmplName,
+  setTmplName,
   year,
   setYear,
   period,
@@ -42,6 +48,7 @@ const NavbarSearch = ({
   setDay,
   reportType,
   setReportType,
+  loading = false,
   onSearch,
 }: NavbarSearchProps) => {
   const [tableLabel, setTableLabel] = useState("");
@@ -49,11 +56,17 @@ const NavbarSearch = ({
   const [tableOptions, setTableOptions] = useState<TableOption[]>([]);
   const [loadingTableOptions, setLoadingTableOptions] = useState(false);
 
+  useEffect(() => {
+    if (table) {
+      void fetchTableInfo(table);
+    }
+  }, [table]);
+
   const fetchTables = async (keyword = "") => {
     setLoadingTableOptions(true);
     try {
       const res = await wareTemplateApi.getOptionTable(keyword);
-      setTableOptions(res);
+      setTableOptions(res || []);
     } finally {
       setLoadingTableOptions(false);
     }
@@ -86,40 +99,42 @@ const NavbarSearch = ({
     <div className="px-3 pt-3 pb-2 bg-gray-100 border-b border-gray-200">
       <Card className="shadow-sm border-0 rounded-xl">
         <div className="flex flex-wrap items-end gap-3">
-          {/* <div className="min-w-60 max-w-[380px] flex-[0_1_320px]">
-            <div className="text-xs font-semibold text-gray-600 mb-1">Mã bảng</div>
-            <div className="relative">
-              <Input
-                size="large"
-                value={table}
-                prefix={<TableOutlined />}
-                placeholder="Nhập tableCode"
-                className="pr-10"
-                onChange={(e) => {
-                  setTable(e.target.value);
-                  setTableLabel("");
-                }}
-              />
-              <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-800 text-xl font-bold w-8 h-8 flex items-center justify-center bg-white rounded hover:bg-blue-50 transition-colors z-10"
-                onClick={() => {
-                  setTableModalOpen(true);
-                  fetchTables();
-                }}
-                type="button"
-              >
-                +
-              </button>
+          {/* Chọn bảng báo cáo */}
+          <div className="min-w-[260px] max-w-[360px] flex-[1_1_280px]">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Bảng / Báo cáo</div>
+            <div
+              onClick={() => {
+                setTableModalOpen(true);
+                void fetchTables();
+              }}
+              className="h-10 px-3 border border-gray-300 hover:border-blue-500 rounded-lg flex items-center justify-between cursor-pointer bg-white transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                <TableOutlined className="text-blue-600 shrink-0" />
+                {table ? (
+                  <div className="truncate text-sm font-medium text-gray-800">
+                    <span className="font-semibold text-blue-700">{table}</span>
+                    <span className="text-gray-500 text-xs ml-1.5">
+                      ({tmplName || tableLabel || "Báo cáo"})
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-gray-400 text-sm">Chọn bảng dữ liệu...</span>
+                )}
+              </div>
+              <Button size="small" type="link" icon={<SwapOutlined />} className="shrink-0 p-0 text-blue-600">
+                Đổi
+              </Button>
             </div>
-          </div> */}
+          </div>
 
-          <div className="w-[150px]">
+          <div className="w-[120px]">
             <div className="text-xs font-semibold text-gray-600 mb-1">Năm</div>
             <Input
               size="large"
               className="w-full"
               value={year ?? ""}
-              placeholder="2026"
+              placeholder="VD: 2026"
               onChange={(e) => {
                 const val = e.target.value.trim();
                 if (!val) {
@@ -132,13 +147,13 @@ const NavbarSearch = ({
             />
           </div>
 
-          <div className="w-[150px]">
+          <div className="w-[120px]">
             <div className="text-xs font-semibold text-gray-600 mb-1">Tháng</div>
             <Input
               size="large"
               className="w-full"
               value={period ?? ""}
-              placeholder="04"
+              placeholder="VD: 04"
               disabled={isYearReport}
               onChange={(e) => {
                 const val = e.target.value.trim();
@@ -147,13 +162,13 @@ const NavbarSearch = ({
             />
           </div>
 
-          <div className="w-[150px]">
+          <div className="w-[120px]">
             <div className="text-xs font-semibold text-gray-600 mb-1">Ngày</div>
             <Input
               size="large"
               className="w-full"
               value={day ?? ""}
-              placeholder="01"
+              placeholder="VD: 01"
               disabled={isMonthReport || isYearReport}
               onChange={(e) => {
                 const val = e.target.value.trim();
@@ -162,7 +177,7 @@ const NavbarSearch = ({
             />
           </div>
 
-          <div className="w-[220px]">
+          <div className="w-[200px]">
             <div className="text-xs font-semibold text-gray-600 mb-1">Loại báo cáo</div>
             <Select
               size="large"
@@ -192,25 +207,20 @@ const NavbarSearch = ({
           </div>
 
           <div className="flex-1 flex justify-end items-center gap-2">
-            {tableLabel ? (
-              <Tag color="blue" className="mr-0! max-w-[260px] truncate">
-                {tableLabel}
-              </Tag>
-            ) : null}
             <Button
               size="large"
               type="primary"
+              loading={loading}
               icon={<SearchOutlined />}
               className="bg-[#1976D2]! hover:bg-blue-700!"
               onClick={() => {
                 void handleSearch();
               }}
             >
-              Xem
+              Xem báo cáo
             </Button>
           </div>
         </div>
-        {/* Đã bỏ phần tìm kiếm nâng cao theo yêu cầu */}
       </Card>
 
       <Modal
@@ -218,8 +228,8 @@ const NavbarSearch = ({
         footer={null}
         width={640}
         title={
-          <div className="flex items-center gap-2">
-            <TableOutlined /> Chọn bảng dữ liệu
+          <div className="flex items-center gap-2 font-semibold">
+            <TableOutlined className="text-blue-600" /> Chọn bảng dữ liệu cần xem
           </div>
         }
         onCancel={() => setTableModalOpen(false)}
@@ -228,32 +238,35 @@ const NavbarSearch = ({
           size="large"
           placeholder="Nhập tên hoặc mã bảng..."
           className="mb-4"
+          allowClear
           onChange={(e) => fetchTables(e.target.value)}
         />
 
         {loadingTableOptions ? (
           <div className="text-center py-8">
-            <Spin />
+            <Spin tip="Đang tải danh sách bảng..." />
           </div>
         ) : tableOptions.length === 0 ? (
-          <Empty description="Không có dữ liệu" />
+          <Empty description="Không tìm thấy bảng phù hợp" />
         ) : (
           <List
             dataSource={tableOptions}
+            className="max-h-[400px] overflow-y-auto"
             renderItem={(item) => (
               <List.Item
-                className="cursor-pointer hover:bg-blue-50 rounded-lg px-3"
+                className="cursor-pointer hover:bg-blue-50 rounded-lg px-3 transition-colors"
                 onClick={async () => {
                   setTable(item.tableCode);
                   setTableLabel(item.tableName);
+                  if (setTmplName) setTmplName(item.tableName);
                   setTableModalOpen(false);
-                  await handleSearch(item.tableCode);
+                  await onSearch(item.tableCode, item.tableName);
                 }}
               >
                 <div>
-                  <div className="font-semibold">{item.tableName}</div>
-                  <div className="text-xs text-gray-500">
-                    Mã: <Tag color="blue">{item.tableCode}</Tag>
+                  <div className="font-semibold text-gray-800">{item.tableName}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    Mã bảng: <Tag color="blue">{item.tableCode}</Tag>
                   </div>
                 </div>
               </List.Item>

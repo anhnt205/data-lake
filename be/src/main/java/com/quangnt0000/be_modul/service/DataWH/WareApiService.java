@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import com.quangnt0000.be_modul.modal.DataWH.UserPush;
+import com.quangnt0000.be_modul.repository.DataWH.UserPushRepository;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
@@ -44,6 +46,7 @@ public class WareApiService {
     private final WareBatchActionRepository wareBatchActionRepository;
     private final WareMappingRepository wareMappingRepository;
     private final WareTemplateRepository wareTemplateRepository;
+    private final UserPushRepository userPushRepository;
     private final WebClient webClient;
     private final WebClient dataLakeWebClient;
     private final VinacominApiClient vinacominApiClient;
@@ -54,6 +57,7 @@ public class WareApiService {
             WareBatchActionRepository wareBatchActionRepository,
             WareMappingRepository wareMappingRepository,
             WareTemplateRepository wareTemplateRepository,
+            UserPushRepository userPushRepository,
             @Qualifier("vinacominWebClient") WebClient webClient,
             @Qualifier("dataLakeWebClient") WebClient dataLakeWebClient,
             VinacominApiClient vinacominApiClient,
@@ -63,6 +67,7 @@ public class WareApiService {
         this.wareBatchActionRepository = wareBatchActionRepository;
         this.wareMappingRepository = wareMappingRepository;
         this.wareTemplateRepository = wareTemplateRepository;
+        this.userPushRepository = userPushRepository;
         this.webClient = webClient;
         this.dataLakeWebClient = dataLakeWebClient;
         this.vinacominApiClient = vinacominApiClient;
@@ -70,11 +75,43 @@ public class WareApiService {
         this.aggregationEngine = aggregationEngine;
     }
 
+    public LoginRequest getVinaLoginRequest() {
+        try {
+            List<UserPush> userPushes = userPushRepository.findAll();
+            if (userPushes != null && !userPushes.isEmpty()) {
+                for (UserPush up : userPushes) {
+                    if (up.getUsername() != null && !up.getUsername().isBlank()
+                            && up.getPassword() != null && !up.getPassword().isBlank()) {
+                        log.info("Using configured TKV account from UserPush: {}", up.getUsername());
+                        return LoginRequest.builder()
+                                .username(up.getUsername().trim())
+                                .password(up.getPassword().trim())
+                                .ttlSeconds(3600)
+                                .build();
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to retrieve UserPush credentials from DB, falling back to application properties", ex);
+        }
+        String fallbackUser = (this.username != null && !this.username.isBlank()) ? this.username.trim() : "VDHC";
+        String fallbackPass = (this.password != null && !this.password.isBlank()) ? this.password.trim() : "abcABC@123";
+        return LoginRequest.builder()
+                .username(fallbackUser)
+                .password(fallbackPass)
+                .ttlSeconds(3600)
+                .build();
+    }
+
     public ResponseEntity<LoginResponse> login(LoginRequest request) {
+        LoginRequest req = request;
+        if (req == null || req.getUsername() == null || req.getUsername().isBlank()) {
+            req = getVinaLoginRequest();
+        }
         LoginResponse response = webClient.post()
                 .uri("/auth/token")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
+                .bodyValue(req)
                 .retrieve()
                 .bodyToMono(LoginResponse.class)
                 .block();
@@ -102,15 +139,12 @@ public class WareApiService {
 
     public Mono<ResponseEntity<GetResponse>> getMasterData(GetRequest request) {
         ObjectMapper mapper = new ObjectMapper();
-        LoginResponse loginResponse = login(LoginRequest.builder()
-                .username(username)
-                .password(password)
-                .ttlSeconds(3600)
-                .build()).getBody();
-        String token = loginResponse.getAccessToken();
-        if (token == null) {
+        LoginResponse loginResponse = login(getVinaLoginRequest()).getBody();
+        if (loginResponse == null || loginResponse.getAccessToken() == null) {
+            log.error("getMasterData failed: unable to obtain access token from Vinacomin");
             return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
         }
+        String token = loginResponse.getAccessToken();
         return webClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder
@@ -255,11 +289,11 @@ public class WareApiService {
 
     public ResponseEntity<Object> get(@Valid GetRequest request) {
         try {
-            LoginResponse loginResponse = login(LoginRequest.builder()
-                    .username(username)
-                    .password(password)
-                    .ttlSeconds(3600)
-                    .build()).getBody();
+            LoginResponse loginResponse = login(getVinaLoginRequest()).getBody();
+            if (loginResponse == null || loginResponse.getAccessToken() == null) {
+                log.error("Get master-data failed: unable to obtain access token from Vinacomin");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+            }
             String token = loginResponse.getAccessToken();
             boolean aggregationReport = isAggregationReport(request);
             Map<String, Object> filters = buildReportFilters(request);
@@ -284,15 +318,18 @@ public class WareApiService {
                     "Bearer " + token
             );
             // Transform fieldName to fieldTitle based on table name
-            if (request.getTable() != null && response.getRows() != null) {
+            if (request.getTable() != null && response != null && response.getRows() != null) {
                 // Find WareTemplate by table code
                 Optional<WareTemplate> optionalTemplate = wareTemplateRepository.findFirstByTableCodeAndDeletedFalseOrderByCreatedAtDesc(request.getTable());
                 
                 if (optionalTemplate.isPresent()) {
                     WareTemplate wareTemplate = optionalTemplate.get();
-                    List<WareMapping> mappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
+                    List<WareMapping> mappings = wareMappingRepository.findByWareTemplate_IdAndDeletedFalseOrderByIdAsc(wareTemplate.getId());
+                    if (mappings == null || mappings.isEmpty()) {
+                        mappings = wareMappingRepository.findByWareTemplate_IdOrderByIdAsc(wareTemplate.getId());
+                    }
                     
-                    if (!mappings.isEmpty()) {
+                    if (mappings != null && !mappings.isEmpty()) {
                         if (aggregationReport) {
                             response.setRows(aggregationEngine.aggregate(response.getRows(), mappings, request.getReportType()));
                             response.setTotal(response.getRows().size());
@@ -300,13 +337,12 @@ public class WareApiService {
 
                         // Create a map of fieldName (lowercase) -> WareMapping for lookup
                         Map<String, WareMapping> fieldNameToMappingMap = mappings.stream()
+                                .filter(m -> m.getFieldName() != null && !m.getFieldName().isBlank())
                                 .collect(Collectors.toMap(
                                         mapping -> mapping.getFieldName().toLowerCase(),
                                         mapping -> mapping,
                                         (existing, replacement) -> existing
                                 ));
-                        
-                        boolean includeUnmappedFields = request.getReportType() != null && !request.getReportType().isBlank();
 
                         // Transform each row - maintain order based on mappings
                         List<Map<String, Object>> transformedRows = response.getRows().stream()
@@ -315,12 +351,13 @@ public class WareApiService {
                                     
                                     // First, add fields in the order of mappings
                                     for (WareMapping mapping : mappings) {
+                                        if (mapping.getFieldName() == null || mapping.getFieldName().isBlank()) continue;
                                         String fieldNameLower = mapping.getFieldName().toLowerCase();
                                         // Find the key in row that matches (case-insensitive)
                                         for (Map.Entry<String, Object> entry : row.entrySet()) {
-                                            if (entry.getKey().toLowerCase().equals(fieldNameLower)) {
-                                                // Use fieldTitle if not null, otherwise use original fieldName
-                                                String key = mapping.getFieldTitle() != null && !mapping.getFieldTitle().isEmpty() 
+                                            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(fieldNameLower)) {
+                                                // Use fieldTitle if not null/empty, otherwise use original fieldName
+                                                String key = mapping.getFieldTitle() != null && !mapping.getFieldTitle().trim().isEmpty() 
                                                     ? mapping.getFieldTitle() 
                                                     : mapping.getFieldName();
                                                 transformedRow.put(key, entry.getValue());
@@ -329,14 +366,12 @@ public class WareApiService {
                                         }
                                     }
                                     
-                                    if (includeUnmappedFields) {
-                                        // Then, add any remaining fields that weren't in mappings
-                                        row.forEach((key, value) -> {
-                                            if (!fieldNameToMappingMap.containsKey(key.toLowerCase())) {
-                                                transformedRow.put(key, value);
-                                            }
-                                        });
-                                    }
+                                    // Then, add any remaining fields that weren't in mappings
+                                    row.forEach((key, value) -> {
+                                        if (key != null && !fieldNameToMappingMap.containsKey(key.toLowerCase())) {
+                                            transformedRow.putIfAbsent(key, value);
+                                        }
+                                    });
                                     
                                     return transformedRow;
                                 })

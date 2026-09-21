@@ -1,4 +1,4 @@
-import { Card, Empty, Table } from "antd";
+import { Card, Empty, Spin, Table } from "antd";
 
 interface ReportHeader {
   tableName?: string;
@@ -12,6 +12,7 @@ interface ReportHeader {
 interface ResultPanelProps {
   results: any[];
   reportHeader?: ReportHeader;
+  loading?: boolean;
 }
 
 // Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header)
@@ -81,11 +82,35 @@ const getReportName = (tableName?: string): string => {
   return tableName.toUpperCase() || "BÁO CÁO";
 };
 
-const ResultPanel = ({ results, reportHeader }: ResultPanelProps) => {
-  if (results.length === 0) {
+const ResultPanel = ({ results, reportHeader, loading = false }: ResultPanelProps) => {
+  if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full">
-        <Empty description="Không có dữ liệu" />
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full gap-3">
+        <Spin size="large" />
+        <span className="text-gray-500 font-medium text-sm">Đang tải dữ liệu báo cáo từ hệ thống...</span>
+      </div>
+    );
+  }
+
+  if (results.length === 0) {
+    const reportDesc = reportHeader?.tmplName || reportHeader?.tableName;
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full p-6">
+        <Empty
+          description={
+            reportDesc ? (
+              <div className="space-y-1">
+                <div className="text-gray-700 font-medium">Không tìm thấy dữ liệu cho báo cáo "{reportDesc}"</div>
+                <div className="text-xs text-gray-400">Vui lòng thử điều chỉnh bộ lọc thời gian hoặc kiểm tra lại bảng dữ liệu.</div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="text-gray-700 font-medium">Chưa chọn báo cáo</div>
+                <div className="text-xs text-gray-400">Vui lòng chọn báo cáo từ thanh điều hướng "Xem báo cáo" hoặc chọn bảng dữ liệu phía trên.</div>
+              </div>
+            )
+          }
+        />
       </div>
     );
   }
