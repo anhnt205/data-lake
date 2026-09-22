@@ -22,6 +22,7 @@ import type {
 import type { PageResponse } from "../../department/types/department";
 import { wareBatchApi } from "../api/wareBathApi";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { formatVNDate } from "../../../utils/dateUtils";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -278,6 +279,14 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
       key: "reportDay",
       render: (text: string) => (
         <span className="text-gray-600">{text || "-"}</span>
+      ),
+    },
+    {
+      title: "Ngày tạo",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (text: string) => (
+        <span className="text-gray-600">{formatVNDate(text)}</span>
       ),
     },
     {

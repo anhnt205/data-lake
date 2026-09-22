@@ -33,6 +33,7 @@ import { userPushApi } from "../../auth/api/accountConfigApi";
 import type { UserPushResponse } from "../../auth/types/accountConfig";
 import { departmentApi } from "../../department/api/departmentApi";
 import { employeeApi } from "../../employee/api/employeeApi";
+import { formatVNDate } from "../../../utils/dateUtils";
 import { useNavigate } from "react-router-dom";
 
 const { Search } = Input;
@@ -409,17 +410,9 @@ export const SyncBatch: React.FC = () => {
       title: "Ngày tạo",
       dataIndex: "createdAt",
       key: "createdAt",
-      render: (text: string) => {
-        if (!text) return <span className="text-gray-600">-</span>;
-
-        // Nối thêm +07:00 để trình duyệt hiểu đây là giờ Việt Nam
-        const dateString = text + "+07:00";
-        const formatted = new Date(dateString).toLocaleString("vi-VN", {
-          timeZone: "Asia/Ho_Chi_Minh",
-        });
-
-        return <span className="text-gray-600">{formatted}</span>;
-      },
+      render: (text: string) => (
+        <span className="text-gray-600">{formatVNDate(text)}</span>
+      ),
     },
     {
       title: "Upload",

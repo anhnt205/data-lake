@@ -23,6 +23,7 @@ import { wareBatchApi } from "../api/wareBathApi";
 import type { WareDataRowResponse } from "../types/wareDataRow";
 import type { WareMappingResponse } from "../types/wareMapping";
 import type { WareBatchResponse } from "../types/wareBacth";
+import { formatVNDate } from "../../../utils/dateUtils";
 import {
   CheckCircleOutlined,
   SearchOutlined,
@@ -810,24 +811,6 @@ export const WareBatchDetailApprove: React.FC = () => {
   };
 
   // ── Columns ───────────────────────────────────────────────────────────────────
-
-  const formatVNDate = (iso?: string) => {
-    if (!iso) return "-";
-    const hasTimezone = iso.endsWith("Z") || /[+-]\d{2}(:\d{2})?$/.test(iso);
-    const isoStr = hasTimezone ? iso : `${iso}+07:00`;
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString("vi-VN", {
-      timeZone: "Asia/Ho_Chi_Minh",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-  };
 
   const defaultColumns: ColumnsType<WareDataRowResponse> = [
     {

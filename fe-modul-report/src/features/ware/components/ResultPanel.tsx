@@ -1,4 +1,4 @@
-import { Card, Empty, Table } from "antd";
+import { Card, Empty, Table, Spin, Alert } from "antd";
 
 interface ReportHeader {
   tableName?: string;
@@ -12,6 +12,8 @@ interface ReportHeader {
 interface ResultPanelProps {
   results: any[];
   reportHeader?: ReportHeader;
+  loading?: boolean;
+  errorMessage?: string | null;
 }
 
 // Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header hoặc trường hệ thống)
@@ -92,11 +94,56 @@ const getReportName = (tableName?: string): string => {
   return tableName.toUpperCase() || "BÁO CÁO";
 };
 
-const ResultPanel = ({ results, reportHeader }: ResultPanelProps) => {
+const ResultPanel = ({
+  results,
+  reportHeader,
+  loading,
+  errorMessage,
+}: ResultPanelProps) => {
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full gap-3">
+        <Spin size="large" />
+        <span className="text-gray-500 text-sm">Đang tải dữ liệu từ Vinacomin...</span>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full p-6">
+        <Alert
+          type="warning"
+          message="Không thể lấy dữ liệu báo cáo từ Vinacomin"
+          description={
+            <div className="space-y-2 text-sm mt-1">
+              <p>{errorMessage}</p>
+              <p className="text-gray-500">
+                💡 Gợi ý: Hãy kiểm tra xem tài khoản kết nối Vinacomin đã được cấu hình tại trang{" "}
+                <b>Cấu hình tài khoản đẩy</b> (/account-config) hay chưa, hoặc thử chọn Năm / Tháng / Ngày cụ thể.
+              </p>
+            </div>
+          }
+          showIcon
+          className="max-w-lg shadow-sm"
+        />
+      </div>
+    );
+  }
+
   if (results.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full">
-        <Empty description="Không có dữ liệu" />
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full p-6">
+        <Empty
+          description={
+            <div className="text-center space-y-2 max-w-md">
+              <p className="font-medium text-gray-700">Chưa có dữ liệu cho báo cáo này từ Vinacomin</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                💡 Nếu báo cáo đã được upload/đồng bộ thành công, hãy chọn <b>Năm</b>, <b>Tháng</b> hoặc <b>Ngày</b> trên thanh công cụ phía trên và bấm <b>Tìm kiếm</b>.
+              </p>
+            </div>
+          }
+        />
       </div>
     );
   }
