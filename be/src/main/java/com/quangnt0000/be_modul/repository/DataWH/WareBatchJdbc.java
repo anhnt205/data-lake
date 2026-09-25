@@ -48,6 +48,8 @@ public class WareBatchJdbc {
                                 SELECT 1
                                 FROM ware_batch_action wba
                                 WHERE wba.ware_batch_id = wb.id
+                                  AND (wba.deleted = false OR wba.deleted IS NULL)
+                                  AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
                             )
                             THEN 'true'
                             ELSE 'false'

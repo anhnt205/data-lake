@@ -804,6 +804,8 @@ export const WareBatchDetailApprove: React.FC = () => {
     } catch (error: any) {
       console.error("Push batch thất bại:", error);
       const errorMsg =
+        error?.response?.data?.message ||
+        (typeof error?.response?.data === "string" ? error.response.data : null) ||
         error?.message ||
         error?.data?.message ||
         (typeof error?.data === "string" ? error.data : null) ||

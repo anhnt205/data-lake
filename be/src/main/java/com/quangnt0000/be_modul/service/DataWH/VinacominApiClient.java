@@ -15,7 +15,7 @@ public interface VinacominApiClient {
     GetResponse getMasterData(
             @RequestParam("table") String table,
 
-            @RequestParam("filters") String filters,
+            @RequestParam(value = "filters", required = false) String filters,
 
             @RequestParam(value = "columns", required = false) List<String> columns,
             @RequestParam(value = "order_by", required = false) List<String> orderBy,

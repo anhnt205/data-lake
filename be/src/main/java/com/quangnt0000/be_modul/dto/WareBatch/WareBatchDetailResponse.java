@@ -39,4 +39,5 @@ public class WareBatchDetailResponse {
     private WareBatchEnum status;
     
     private boolean canApprove;
+    private Boolean isPushed;
 }

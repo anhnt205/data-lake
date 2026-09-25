@@ -601,6 +601,7 @@ public class WareBatchService {
                                 .wareBatchStatus(
                                         item.getStatus() != null ? item.getStatus().name() : null
                                 )
+                                .isPushed(batchActionRepository.existsByWareBatchId(item.getId()))
                                 .build()
                 )
                 .toList();
@@ -664,6 +665,7 @@ public class WareBatchService {
                 .updatedAt(wareBatch.getUpdatedAt())
                 .status(wareBatch.getStatus())
                 .canApprove(canApprove)
+                .isPushed(batchActionRepository.existsByWareBatchId(wareBatch.getId()))
                 .build();
 
         return ResponseEntity.ok(response);
@@ -773,7 +775,7 @@ public class WareBatchService {
                 wareBatch.setStatus(WareBatchEnum.Da_Phe_Duyet);
                 wareBatchRepository.save(wareBatch);
             }
-            return response;
+            return response != null ? response : ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Không nhận được phản hồi từ dịch vụ đồng bộ");
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }

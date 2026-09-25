@@ -233,14 +233,35 @@ public class WareApiService {
 
                 .flatMap(pushResponse ->
                         Mono.fromCallable(() -> {
+                                    int inserted = pushResponse.getInserted() != null ? pushResponse.getInserted() : 0;
+                                    int updated = pushResponse.getUpdated() != null ? pushResponse.getUpdated() : 0;
+
+                                    if (inserted == 0 && updated == 0) {
+                                        wareBatchActionRepository.save(
+                                                WareBatchAction.builder()
+                                                        .action("PUSH_FAILED")
+                                                        .request(request)
+                                                        .response(pushResponse)
+                                                        .actionName("Failed (0 inserted, 0 updated)")
+                                                        .inserted(0)
+                                                        .updated(0)
+                                                        .tableName(request.getTable())
+                                                        .wareBatch(wareBatch)
+                                                        .build()
+                                        );
+                                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                                .contentType(MediaType.TEXT_PLAIN)
+                                                .body((Object) "Tập đoàn không ghi nhận dòng dữ liệu nào, vui lòng kiểm tra lại mã đơn vị (BUKRS), kỳ báo cáo và các cột khóa");
+                                    }
+
                                     wareBatchActionRepository.save(
                                             WareBatchAction.builder()
                                                     .action("PUSH")
                                                     .request(request)
                                                     .response(pushResponse)
-                                                    .actionName(pushResponse.getInserted() > 0 ? "Insert" : "Update")
-                                                    .inserted(pushResponse.getInserted())
-                                                    .updated(pushResponse.getUpdated())
+                                                    .actionName(inserted > 0 ? "Insert" : "Update")
+                                                    .inserted(inserted)
+                                                    .updated(updated)
                                                     .tableName(request.getTable())
                                                     .wareBatch(wareBatch)
                                                     .build()

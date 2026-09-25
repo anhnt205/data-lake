@@ -22,6 +22,13 @@ public interface WareBatchActionRepository extends JpaRepository<WareBatchAction
             Pageable pageable
     );
     
-    boolean existsByWareBatchId(Integer wareBatchId);
+    @Query("""
+        SELECT CASE WHEN COUNT(wba) > 0 THEN true ELSE false END
+        FROM WareBatchAction wba
+        WHERE wba.wareBatch.id = :wareBatchId
+          AND (wba.deleted = false OR wba.deleted IS NULL)
+          AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
+    """)
+    boolean existsByWareBatchId(@Param("wareBatchId") Integer wareBatchId);
 
 }

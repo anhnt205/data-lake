@@ -278,6 +278,8 @@ export const SyncBatch: React.FC = () => {
         } catch (error: any) {
           console.error(`Lỗi đồng bộ batch ${batchId}:`, error);
           const errorMsg =
+            error?.response?.data?.message ||
+            (typeof error?.response?.data === "string" ? error.response.data : null) ||
             error?.message ||
             error?.data?.message ||
             (typeof error?.data === "string" ? error.data : null) ||
@@ -357,21 +359,21 @@ export const SyncBatch: React.FC = () => {
             selectedIds.length > 0 &&
             selectedIds.length ===
             filteredBatches.filter(
-              (b) => b.wareBatchStatus === "Da_Phe_Duyet" && !b.isPushed
+              (b) => b.wareBatchStatus === "Da_Phe_Duyet"
             ).length
           }
           indeterminate={
             selectedIds.length > 0 &&
             selectedIds.length <
             filteredBatches.filter(
-              (b) => b.wareBatchStatus === "Da_Phe_Duyet" && !b.isPushed
+              (b) => b.wareBatchStatus === "Da_Phe_Duyet"
             ).length
           }
           onChange={(e) => {
             if (e.target.checked) {
               const selectableIds = filteredBatches
                 .filter(
-                  (b) => b.wareBatchStatus === "Da_Phe_Duyet" && !b.isPushed
+                  (b) => b.wareBatchStatus === "Da_Phe_Duyet"
                 )
                 .map((b) => b.id!);
               setSelectedIds(selectableIds);
@@ -387,7 +389,7 @@ export const SyncBatch: React.FC = () => {
       width: 60,
       align: "center",
       render: (_, record) => {
-        const isSelectable = record.wareBatchStatus === "Da_Phe_Duyet" && !record.isPushed;
+        const isSelectable = record.wareBatchStatus === "Da_Phe_Duyet";
         return (
           <Checkbox
             checked={selectedIds.includes(record.id!)}
