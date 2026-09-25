@@ -30,11 +30,18 @@ const SearchMasterData = () => {
 
   const [results, setResults] = useState<any[]>([]);
   const [reportHeader, setReportHeader] = useState<ReportHeader>({});
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Đồng bộ table và tmplName khi URL params thay đổi
   useEffect(() => {
-    setTable(searchParams.get("table") || "");
-    setTmplName(searchParams.get("tmpl") || "");
+    const urlTable = searchParams.get("table") || "";
+    const urlTmpl = searchParams.get("tmpl") || "";
+    setTable(urlTable);
+    setTmplName(urlTmpl);
+    if (urlTable) {
+      void handleSearch(urlTable);
+    }
   }, [searchParams]);
 
   const handleSearch = async (tableOverride?: string) => {
@@ -43,7 +50,7 @@ const SearchMasterData = () => {
     // Cập nhật report header — bao gồm tmplName
     setReportHeader({
       tableName: tableToSearch,
-      tmplName: tmplName,
+      tmplName: searchParams.get("tmpl") || tmplName,
       year: year,
       period: period,
       day: day,
@@ -75,6 +82,9 @@ const SearchMasterData = () => {
       reportType: reportTypeOverride,
       filters,
     });
+
+    setLoading(true);
+    setErrorMessage(null);
 
     try {
       setResults([]);
@@ -118,9 +128,16 @@ const SearchMasterData = () => {
         buildRequest(buildFilters())
       );
       setResults(res.rows || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Lỗi kết nối hoặc tài khoản đồng bộ không hợp lệ";
+      setErrorMessage(msg);
       setResults([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -141,7 +158,12 @@ const SearchMasterData = () => {
       />
 
       <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
-        <ResultPanel results={results} reportHeader={reportHeader} />
+        <ResultPanel
+          results={results}
+          reportHeader={reportHeader}
+          loading={loading}
+          errorMessage={errorMessage}
+        />
       </main>
     </div>
   );

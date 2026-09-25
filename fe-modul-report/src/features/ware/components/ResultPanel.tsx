@@ -1,4 +1,4 @@
-import { Card, Empty, Table } from "antd";
+import { Card, Empty, Table, Spin, Alert } from "antd";
 
 interface ReportHeader {
   tableName?: string;
@@ -12,9 +12,11 @@ interface ReportHeader {
 interface ResultPanelProps {
   results: any[];
   reportHeader?: ReportHeader;
+  loading?: boolean;
+  errorMessage?: string | null;
 }
 
-// Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header)
+// Danh sách cột cần loại bỏ khỏi bảng (sẽ dùng làm header hoặc trường hệ thống)
 const META_COLUMNS = [
   "Mã công ty",
   "mã đơn vị",
@@ -22,7 +24,6 @@ const META_COLUMNS = [
   "tháng",
   "ngày",
   "loại dữ liệu",
-  "năm",
   "period",
   "ngay",
   "day",
@@ -30,6 +31,18 @@ const META_COLUMNS = [
   "data_type",
   "loai_du_lieu",
   "ma_don_vi",
+  "bukrs",
+  "data_upload_id",
+  "created_by",
+  "created_at",
+  "modified_by",
+  "modified_at",
+  "syncdate",
+  "version",
+  "maxdate",
+  "tenant_id",
+  "delete_flag",
+  "is_deleted",
 ];
 
 const PRIORITY_COLUMNS = [
@@ -81,11 +94,56 @@ const getReportName = (tableName?: string): string => {
   return tableName.toUpperCase() || "BÁO CÁO";
 };
 
-const ResultPanel = ({ results, reportHeader }: ResultPanelProps) => {
+const ResultPanel = ({
+  results,
+  reportHeader,
+  loading,
+  errorMessage,
+}: ResultPanelProps) => {
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full gap-3">
+        <Spin size="large" />
+        <span className="text-gray-500 text-sm">Đang tải dữ liệu từ Vinacomin...</span>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full p-6">
+        <Alert
+          type="warning"
+          message="Không thể lấy dữ liệu báo cáo từ Vinacomin"
+          description={
+            <div className="space-y-2 text-sm mt-1">
+              <p>{errorMessage}</p>
+              <p className="text-gray-500">
+                💡 Gợi ý: Hãy kiểm tra xem tài khoản kết nối Vinacomin đã được cấu hình tại trang{" "}
+                <b>Cấu hình tài khoản TKV</b> (/account-config) hay chưa, hoặc thử chọn Năm / Tháng / Ngày cụ thể.
+              </p>
+            </div>
+          }
+          showIcon
+          className="max-w-lg shadow-sm"
+        />
+      </div>
+    );
+  }
+
   if (results.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full">
-        <Empty description="Không có dữ liệu" />
+      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full p-6">
+        <Empty
+          description={
+            <div className="text-center space-y-2 max-w-md">
+              <p className="font-medium text-gray-700">Chưa có dữ liệu cho báo cáo này từ Vinacomin</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                💡 Nếu báo cáo đã được upload/đồng bộ thành công, hãy chọn <b>Năm</b>, <b>Tháng</b> hoặc <b>Ngày</b> trên thanh công cụ phía trên và bấm <b>Tìm kiếm</b>.
+              </p>
+            </div>
+          }
+        />
       </div>
     );
   }
@@ -185,7 +243,7 @@ const ResultPanel = ({ results, reportHeader }: ResultPanelProps) => {
         {/* Tên công ty - căn giữa */}
         <div className="text-center mb-1 print:mb-0.5">
           <div className="font-bold text-sm print:text-xs tracking-wide text-gray-700">
-            CÔNG TY THAN ĐÈO NAI - CỌC SÁU - TKV
+            CÔNG TY THAN DƯƠNG HUY - TKV
           </div>
         </div>
 

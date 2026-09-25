@@ -262,12 +262,14 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
   };
 
   const getStatusBadge = (status: string) => {
+    if (!status) return <span className="text-gray-400">—</span>;
     const statusConfig: { [key: string]: { color: string; label: string } } = {
       Cho_Phe_Duyet: { color: "orange", label: "Chờ duyệt" },
       Da_Phe_Duyet: { color: "success", label: "Đã duyệt" },
       Tu_Choi_Phe_Duyet: { color: "error", label: "Từ chối" },
     };
-    const config = statusConfig[status] || { color: "default", label: status };
+    const config = statusConfig[status];
+    if (!config) return <span className="text-gray-400">—</span>;
     return (
       <Tag color={config.color} className="px-3 py-1 text-sm font-medium">
         {config.label}
@@ -330,7 +332,7 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
         <Tooltip title={value ? "Đã đẩy dữ liệu" : "Chưa đẩy dữ liệu"}>
           {value ? (
             <CheckCircleOutlined
-              className="text-lg text-blue-600 cursor-pointer hover:text-blue-700 transition-colors"
+              className="text-lg text-gray-700 cursor-pointer hover:text-blue-700 transition-colors"
               onClick={() => nav(`/ware/batch/${record.id}/actions`)}
             />
           ) : (
@@ -357,7 +359,7 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
               type="primary"
               icon={<EditOutlined />}
               onClick={() => nav(`/ware/batch/${record.id}`)}
-              className="bg-[#1976D2]! hover:bg-blue-700!"
+              className="bg-green-600! hover:bg-green-700!"
               size="large"
             >
               Xem
@@ -427,7 +429,7 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
             size="large"
             icon={<PlusOutlined />}
             onClick={handleOpenModal}
-            className="bg-[#0891b2]! hover:bg-cyan-7000! h-10 px-6"
+            className="bg-[#0891b2]! hover:bg-cyan-700! h-10 px-6"
           >
             Thêm dữ liệu
           </Button>
@@ -522,7 +524,7 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
               size="large"
               icon={<PlusOutlined />}
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#0891b2]! hover:bg-cyan-7000! h-11 px-8"
+              className="bg-[#0891b2]! hover:bg-cyan-700! h-11 px-8"
             >
               Thêm batch mới
             </Button>
