@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Button,
   Card,
@@ -28,7 +28,6 @@ interface NavbarSearchProps {
   setDay: (val?: string) => void;
   reportType?: "MONTH" | "YEAR";
   setReportType: (val?: "MONTH" | "YEAR") => void;
-  loading?: boolean;
   onSearch: (tableOverride?: string) => Promise<void>;
 }
 
@@ -43,7 +42,6 @@ const NavbarSearch = ({
   setDay,
   reportType,
   setReportType,
-  loading = false,
   onSearch,
 }: NavbarSearchProps) => {
   const [tableLabel, setTableLabel] = useState("");
@@ -51,17 +49,11 @@ const NavbarSearch = ({
   const [tableOptions, setTableOptions] = useState<TableOption[]>([]);
   const [loadingTableOptions, setLoadingTableOptions] = useState(false);
 
-  useEffect(() => {
-    if (table) {
-      void fetchTableInfo(table);
-    }
-  }, [table]);
-
   const fetchTables = async (keyword = "") => {
     setLoadingTableOptions(true);
     try {
       const res = await wareTemplateApi.getOptionTable(keyword);
-      setTableOptions(res || []);
+      setTableOptions(res);
     } finally {
       setLoadingTableOptions(false);
     }
@@ -94,6 +86,33 @@ const NavbarSearch = ({
     <div className="px-3 pt-3 pb-2 bg-gray-100 border-b border-gray-200">
       <Card className="shadow-sm border-0 rounded-xl">
         <div className="flex flex-wrap items-end gap-3">
+          {/* <div className="min-w-60 max-w-[380px] flex-[0_1_320px]">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Mã bảng</div>
+            <div className="relative">
+              <Input
+                size="large"
+                value={table}
+                prefix={<TableOutlined />}
+                placeholder="Nhập tableCode"
+                className="pr-10"
+                onChange={(e) => {
+                  setTable(e.target.value);
+                  setTableLabel("");
+                }}
+              />
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-800 text-xl font-bold w-8 h-8 flex items-center justify-center bg-white rounded hover:bg-blue-50 transition-colors z-10"
+                onClick={() => {
+                  setTableModalOpen(true);
+                  fetchTables();
+                }}
+                type="button"
+              >
+                +
+              </button>
+            </div>
+          </div> */}
+
           <div className="w-[150px]">
             <div className="text-xs font-semibold text-gray-600 mb-1">Năm</div>
             <Input
@@ -174,34 +193,13 @@ const NavbarSearch = ({
 
           <div className="flex-1 flex justify-end items-center gap-2">
             {tableLabel ? (
-              <Tag
-                color="blue"
-                className="mr-0! max-w-[260px] truncate cursor-pointer hover:opacity-80"
-                onClick={() => {
-                  setTableModalOpen(true);
-                  void fetchTables();
-                }}
-                title="Bấm để chọn bảng dữ liệu"
-              >
+              <Tag color="blue" className="mr-0! max-w-[260px] truncate">
                 {tableLabel}
               </Tag>
-            ) : (
-              <Button
-                type="dashed"
-                size="large"
-                icon={<TableOutlined />}
-                onClick={() => {
-                  setTableModalOpen(true);
-                  void fetchTables();
-                }}
-              >
-                Chọn bảng
-              </Button>
-            )}
+            ) : null}
             <Button
               size="large"
               type="primary"
-              loading={loading}
               icon={<SearchOutlined />}
               className="bg-[#1976D2]! hover:bg-blue-700!"
               onClick={() => {
@@ -212,6 +210,7 @@ const NavbarSearch = ({
             </Button>
           </div>
         </div>
+        {/* Đã bỏ phần tìm kiếm nâng cao theo yêu cầu */}
       </Card>
 
       <Modal

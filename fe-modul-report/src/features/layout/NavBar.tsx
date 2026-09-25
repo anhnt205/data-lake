@@ -612,7 +612,6 @@ export default function NavBar() {
           <Button
             type="text"
             icon={<EyeOutlined className="text-lg mr-2" />}
-            onClick={() => navigate("/search/master")}
             className="text-white! border-0! bg-transparent! font-semibold text-base tracking-wide hover:bg-white/15! transition-all duration-300 rounded-lg cursor-pointer group"
             size="large"
           >

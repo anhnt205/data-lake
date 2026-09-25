@@ -38,6 +38,5 @@ datalake:
   base-url: http://1.53.45.49:1313
 
 account:
-  username: ${USERNAME_VINA:VDHC}
-  password: ${PASSWORD_VINA:abcABC@123}
-
+  username: ${USERNAME_VINA}
+  password: ${PASSWORD_VINA}
