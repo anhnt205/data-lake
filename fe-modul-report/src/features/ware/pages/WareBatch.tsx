@@ -61,6 +61,7 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
   const { templateId: templateIdParam } = useParams<{ templateId: string }>();
   const [searchParams] = useSearchParams();
   const resolvedTemplateId = templateIdProp ?? (templateIdParam ? Number(templateIdParam) : undefined);
+  const isViewOnly = searchParams.get("viewOnly") === "true";
 
   const breadcrumbFromUrl: BreadcrumbInfo | null =
     searchParams.get("dept") || searchParams.get("cat")
@@ -150,11 +151,16 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
         limit,
         keyword: searchKeyword,
         wareTemplateId: resolvedTemplateId,
+        ...(isViewOnly ? { isPushed: true } : {}),
       };
       const res: PageResponse<WareBatchResponse> =
         await wareBatchApi.searchWareBatch(params);
-      setBatches(res.content);
-      setTotal(res.totalElements);
+      let content = res.content || [];
+      if (isViewOnly) {
+        content = content.filter((b) => b.isPushed);
+      }
+      setBatches(content);
+      setTotal(isViewOnly && res.totalElements === undefined ? content.length : res.totalElements);
     } catch (error) {
       messageApi.error("Lấy danh sách báo cáo thất bại");
     } finally {
@@ -164,7 +170,7 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
 
   useEffect(() => {
     fetchBatches();
-  }, [page, searchKeyword, resolvedTemplateId]);
+  }, [page, searchKeyword, resolvedTemplateId, isViewOnly]);
 
   const handleOpenModal = () => {
     form.setFieldsValue({ name: templateName });
@@ -351,14 +357,14 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
       title: "Thao tác",
       key: "action",
       align: "center",
-      width: 180,
+      width: isViewOnly ? 150 : 180,
       render: (_, record) => (
         <Space>
           <Tooltip title="Xem chi tiết">
             <Button
               type="primary"
               icon={<EditOutlined />}
-              onClick={() => nav(`/ware/batch/${record.id}`)}
+              onClick={() => nav(`/ware/batch/${record.id}${isViewOnly ? "?viewOnly=true" : ""}`)}
               className="bg-green-600! hover:bg-green-700!"
               size="large"
             >
@@ -377,16 +383,18 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
             </Button>
           </Tooltip>
 
-          <Tooltip title="Xóa batch">
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record.id!)}
-              size="large"
-            >
-              Xóa
-            </Button>
-          </Tooltip>
+          {!isViewOnly && (
+            <Tooltip title="Xóa batch">
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleDelete(record.id!)}
+                size="large"
+              >
+                Xóa
+              </Button>
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -424,15 +432,17 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
           >
             Tải biểu mẫu
           </Button>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={handleOpenModal}
-            className="bg-[#0891b2]! hover:bg-cyan-700! h-10 px-6"
-          >
-            Thêm dữ liệu
-          </Button>
+          {!isViewOnly && (
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={handleOpenModal}
+              className="bg-[#0891b2]! hover:bg-cyan-700! h-10 px-6"
+            >
+              Thêm dữ liệu
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -518,16 +528,22 @@ export const WareBatch: React.FC<WareBatchProps> = ({ templateIdProp }) => {
         {batches.length === 0 && !loading && (
           <div className="text-center py-16 bg-gray-50 rounded-lg mt-4">
             <FileTextOutlined className="text-4xl text-gray-300 mb-3" />
-            <p className="text-gray-500 text-lg mb-6">Không có batch nào</p>
-            <Button
-              type="primary"
-              size="large"
-              icon={<PlusOutlined />}
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#0891b2]! hover:bg-cyan-700! h-11 px-8"
-            >
-              Thêm batch mới
-            </Button>
+            <p className="text-gray-500 text-lg mb-6">
+              {isViewOnly
+                ? "Chưa có báo cáo nào được đẩy dữ liệu thành công lên Tập đoàn"
+                : "Không có batch nào"}
+            </p>
+            {!isViewOnly && (
+              <Button
+                type="primary"
+                size="large"
+                icon={<PlusOutlined />}
+                onClick={() => setIsModalOpen(true)}
+                className="bg-[#0891b2]! hover:bg-cyan-700! h-11 px-8"
+              >
+                Thêm batch mới
+              </Button>
+            )}
           </div>
         )}
       </Card>

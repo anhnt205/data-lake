@@ -91,6 +91,30 @@ public class WareBatchJdbc {
             params.add(request.getStatus().name());
         }
 
+        if (request.getIsPushed() != null) {
+            if (request.getIsPushed()) {
+                sql.append("""
+                     and EXISTS (
+                         SELECT 1
+                         FROM ware_batch_action wba
+                         WHERE wba.ware_batch_id = wb.id
+                           AND (wba.deleted = false OR wba.deleted IS NULL)
+                           AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
+                     ) 
+                """);
+            } else {
+                sql.append("""
+                     and NOT EXISTS (
+                         SELECT 1
+                         FROM ware_batch_action wba
+                         WHERE wba.ware_batch_id = wb.id
+                           AND (wba.deleted = false OR wba.deleted IS NULL)
+                           AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
+                     ) 
+                """);
+            }
+        }
+
         int limit = request.getLimit();
         int offset = request.getPage() * request.getLimit();
 
@@ -143,6 +167,30 @@ public class WareBatchJdbc {
         if (request.getStatus() != null) {
             sql.append(" and wb.status = ? ");
             params.add(request.getStatus().name());
+        }
+
+        if (request.getIsPushed() != null) {
+            if (request.getIsPushed()) {
+                sql.append("""
+                     and EXISTS (
+                         SELECT 1
+                         FROM ware_batch_action wba
+                         WHERE wba.ware_batch_id = wb.id
+                           AND (wba.deleted = false OR wba.deleted IS NULL)
+                           AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
+                     ) 
+                """);
+            } else {
+                sql.append("""
+                     and NOT EXISTS (
+                         SELECT 1
+                         FROM ware_batch_action wba
+                         WHERE wba.ware_batch_id = wb.id
+                           AND (wba.deleted = false OR wba.deleted IS NULL)
+                           AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
+                     ) 
+                """);
+            }
         }
 
         return jdbcTemplate.queryForObject(sql.toString(), Integer.class, params.toArray());

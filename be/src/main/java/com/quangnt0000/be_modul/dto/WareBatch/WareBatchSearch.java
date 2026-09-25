@@ -25,4 +25,6 @@ public class WareBatchSearch {
     private List<String> departmentIds = null;
     @Builder.Default
     private WareBatchEnum status = null;
+    @Builder.Default
+    private Boolean isPushed = null;
 }

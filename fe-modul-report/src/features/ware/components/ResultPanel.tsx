@@ -1,4 +1,5 @@
 import { Card, Empty, Table, Spin, Alert } from "antd";
+import { COMPANY_NAME } from "../../layout/HeaderBar";
 
 interface ReportHeader {
   tableName?: string;
@@ -58,7 +59,6 @@ const PRIORITY_COLUMNS = [
 ];
 
 const PRIORITY_EN = [
-  "id",
   "product_code",
   "product_name",
   "unit",
@@ -202,15 +202,17 @@ const ResultPanel = ({
     return !META_COLUMNS.some((meta) => normalized === normalizeKey(meta));
   });
 
-  const sortedKeys = [
-    ...PRIORITY_COLUMNS.filter((k) => filteredKeys.includes(k)),
-    ...PRIORITY_EN.filter((k) => filteredKeys.includes(k)),
-    ...filteredKeys.filter(
-      (k) =>
-        ![...PRIORITY_COLUMNS, ...PRIORITY_EN].includes(k) &&
-        !META_COLUMNS.some((meta) => normalizeKey(k) === normalizeKey(meta))
-    ),
-  ];
+  const sortedKeys = Array.from(
+    new Set([
+      ...PRIORITY_COLUMNS.filter((k) => filteredKeys.includes(k)),
+      ...PRIORITY_EN.filter((k) => filteredKeys.includes(k)),
+      ...filteredKeys.filter(
+        (k) =>
+          ![...PRIORITY_COLUMNS, ...PRIORITY_EN].includes(k) &&
+          !META_COLUMNS.some((meta) => normalizeKey(k) === normalizeKey(meta))
+      ),
+    ])
+  );
 
   const columns = sortedKeys.map((key) => ({
     title: key.toUpperCase(),
@@ -243,7 +245,7 @@ const ResultPanel = ({
         {/* Tên công ty - căn giữa */}
         <div className="text-center mb-1 print:mb-0.5">
           <div className="font-bold text-sm print:text-xs tracking-wide text-gray-700">
-            CÔNG TY THAN DƯƠNG HUY - TKV
+            {COMPANY_NAME}
           </div>
         </div>
 

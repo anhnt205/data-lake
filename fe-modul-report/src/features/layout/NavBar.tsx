@@ -20,6 +20,7 @@ import {
   LoadingOutlined,
   SettingOutlined,
   DatabaseOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { Button, Dropdown, Menu, Spin } from "antd";
 import { employeeApi } from "../employee/api/employeeApi";
@@ -288,8 +289,8 @@ export default function NavBar() {
     if (tmpl.deptName) params.set("dept", tmpl.deptName);
     if (tmpl.catName) params.set("cat", tmpl.catName);
     if (tmpl.name) params.set("tmpl", tmpl.name);
-    if (tmpl.tableCode) params.set("table", tmpl.tableCode);
-    navigate(`/search/master?${params.toString()}`);
+    params.set("viewOnly", "true");
+    navigate(`/ware/template/${tmpl.id}?${params.toString()}`);
   };
 
   // ── Existing menus (unchanged) ──────────────
@@ -488,6 +489,13 @@ export default function NavBar() {
           onClick: () => navigate("/sync/batch"),
           className: "py-3 px-4 hover:bg-[#f0f9f4]!",
         },
+        {
+          key: "master-search",
+          icon: <SearchOutlined className="text-lg" />,
+          label: <span className="text-base font-medium">Truy vấn dữ liệu Tập đoàn</span>,
+          onClick: () => navigate("/search/master"),
+          className: "py-3 px-4 hover:bg-[#f0f9f4]!",
+        },
       ]}
       className="rounded-xl! shadow-2xl! min-w-[260px] py-2"
     />
@@ -601,7 +609,7 @@ export default function NavBar() {
           overlay={
             <QuickInputPanel
               onSelectTemplate={handleSelectTemplateForView}
-              footerText="💡 Di chuột vào các mục để điều hướng • Click vào Template để mở xem báo cáo"
+              footerText="💡 Di chuột vào các mục để điều hướng • Click vào Template để mở danh sách báo cáo"
             />
           }
           placement="bottomLeft"

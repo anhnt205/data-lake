@@ -5,6 +5,8 @@ import {
   PhoneOutlined,
 } from "@ant-design/icons";
 
+export const COMPANY_NAME = "CÔNG TY THAN DƯƠNG HUY - TKV";
+
 const Header = () => {
   const navigate = useNavigate();
 
@@ -27,7 +29,7 @@ const Header = () => {
               PHẦN MỀM QUẢN LÝ KHO DỮ LIỆU
             </div>
             <div className="text-base font-bold">
-              CÔNG TY THAN DƯƠNG HUY - TKV
+              {COMPANY_NAME}
             </div>
 
             <div className="flex justify-center gap-6 text-sm mt-1">

@@ -41,7 +41,6 @@ import TableQaPage from "../features/lakehouse/table-qa/pages/TableQaPage";
 import DocumentChatPage from "../features/lakehouse/document-chat/pages/DocumentChatPage";
 import SqlMetadataPage from "../features/sql-metadata/pages/SqlMetadataPage";
 import ExcelMappingPage from "../features/excel-mapping/pages/ExcelMappingPage";
-import CoalMiningDashboard from "../features/dashboard/pages/MockDashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -89,7 +88,6 @@ export const router = createBrowserRouter([
       { path: "/category/report", element: <ReportCategoryPage /> },
       { path: "/category/departments", element: <DepartmentCategoryPage /> },
       { path: "/category/ware", element: <WareCategoryPage /> },
-      { path: "/analytics", element: <CoalMiningDashboard /> },
 
       {
         path: "/reports/view/excel/:fileKey",
