@@ -1,10 +1,23 @@
 #!/bin/bash
-# Start the application in the staging environment
-# Docker compose for deployment
-docker compose -f staging-docker-compose.yaml down # always down first
-docker compose -f staging-docker-compose.yaml pull # always pull the latest images
-# run containers in detached mode
-nohup docker compose -f staging-docker-compose.yaml up  -d > deploy.log 2>&1 & 
-# Check built images
-docker image prune -f # clean up unused images
-docker images
+set -e
+
+echo "=== Staging Deployment Starting ==="
+pwd
+cat .env
+
+echo "=== 1. Pulling latest images ==="
+docker compose -f staging-docker-compose.yaml pull
+
+echo "=== 2. Stopping existing containers ==="
+docker compose -f staging-docker-compose.yaml down || true
+
+echo "=== 3. Starting containers with new images ==="
+docker compose -f staging-docker-compose.yaml up -d --force-recreate
+
+echo "=== 4. Checking running containers ==="
+docker compose -f staging-docker-compose.yaml ps
+docker ps
+
+echo "=== 5. Pruning unused images ==="
+docker image prune -f
+echo "=== Deployment Finished Successfully ==="

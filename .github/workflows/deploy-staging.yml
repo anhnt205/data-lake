@@ -95,9 +95,6 @@ jobs:
             ### Change to staging deployment directory
             cd /home/${{ secrets.STAGING_DUONGHUY_USER }}/data-lake/duonghuy/deployment/staging 
             if [ -f deploy.env ]; then cp -f deploy.env .env; fi
-            cat .env
-            ### Clean up unused images
-            docker image prune -f # clean up unused images
-            ### Provide permissions and start the application
+            sed -i 's/\r$//' start-app.sh || true
             chmod +x start-app.sh
             ./start-app.sh

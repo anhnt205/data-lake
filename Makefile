@@ -29,7 +29,7 @@ build:
 
 # Staging
 staging:
-	@echo "REGISTRY=${REGISTRY}\nVERSION=${STAGING_VERSION}-${TAG_VERSION}-${commit_id}" > .env
+	@printf "REGISTRY=%s\nVERSION=%s-%s-%s\n" "${REGISTRY}" "${STAGING_VERSION}" "${TAG_VERSION}" "${commit_id}" > .env
 	@echo "Docker compose build from a file..."
 	docker compose -f docker-compose-build.yaml build \
 		--parallel \
