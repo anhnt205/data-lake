@@ -28,6 +28,9 @@ import {
   CloudUploadOutlined,
   FilterOutlined,
   EditOutlined,
+  CopyOutlined,
+  WarningOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import { userPushApi } from "../../auth/api/accountConfigApi";
 import type { UserPushResponse } from "../../auth/types/accountConfig";
@@ -35,6 +38,22 @@ import { departmentApi } from "../../department/api/departmentApi";
 import { employeeApi } from "../../employee/api/employeeApi";
 import { formatVNDate } from "../../../utils/dateUtils";
 import { useNavigate } from "react-router-dom";
+
+export interface SyncBatchResultItem {
+  id: number | string;
+  code: string;
+  name: string;
+  tableCode?: string;
+  reportName?: string;
+  reportYear?: number | null;
+  reportMonth?: number | null;
+  reportDay?: number | null;
+  status: "success" | "warning" | "error";
+  inserted: number;
+  updated: number;
+  errorMessage?: string;
+  advice?: string;
+}
 
 const { Search } = Input;
 const { Option } = Select;
@@ -58,6 +77,8 @@ export const SyncBatch: React.FC = () => {
   const [departments, setDepartments] = useState<any[]>([]);
   const [myDepartmentIds, setMyDepartmentIds] = useState<string[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
+  const [syncResultModalVisible, setSyncResultModalVisible] = useState(false);
+  const [syncResults, setSyncResults] = useState<SyncBatchResultItem[]>([]);
   const nav = useNavigate();
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -217,6 +238,18 @@ export const SyncBatch: React.FC = () => {
     return warnings;
   };
 
+  const isBatchSelectable = (batch: WareBatchResponse) => {
+    if (batch.wareBatchStatus !== "Da_Phe_Duyet") return false;
+    // Nếu chọn Cập nhật dữ liệu (deleteMissing = true), cho phép chọn lại các batch đã push
+    // Nếu chọn Đồng bộ dữ liệu mới (deleteMissing = false), chỉ cho chọn batch chưa push
+    return deleteMissing || !batch.isPushed;
+  };
+
+  const selectableBatches = useMemo(
+    () => filteredBatches.filter((b) => isBatchSelectable(b)),
+    [filteredBatches, deleteMissing]
+  );
+
   const selectedBatches = filteredBatches.filter((b) => selectedIds.includes(b.id!));
 
   const handleSyncClick = () => {
@@ -227,7 +260,7 @@ export const SyncBatch: React.FC = () => {
 
     const duplicateWarnings = checkDuplicates(selectedBatches);
     if (duplicateWarnings.length > 0) {
-      modal.warning({  // ✅ dùng modal.warning thay vì Modal.warning
+      modal.warning({
         title: "Phát hiện báo cáo trùng lặp",
         content: (
           <ul className="space-y-2 mt-2">
@@ -261,38 +294,203 @@ export const SyncBatch: React.FC = () => {
     if (selectedIds.length === 0) return;
 
     setSyncing(true);
-    try {
-      // Đồng bộ từng batch một
-      let successCount = 0;
-      let failCount = 0;
+    const results: SyncBatchResultItem[] = [];
 
+    try {
+      // Đồng bộ từng batch một và ghi nhận chi tiết kết quả từng batch
       for (const batchId of selectedIds) {
+        const batchInfo = batches.find((b) => b.id === batchId);
+        const code = batchInfo?.code || `ID ${batchId}`;
+        const name = batchInfo?.name || batchInfo?.reportName || "Báo cáo";
+        const tableCode = batchInfo?.tableCode || "-";
+        const reportName = batchInfo?.reportName || batchInfo?.name || "-";
+        const reportYear = batchInfo?.reportYear;
+        const reportMonth = batchInfo?.reportMonth;
+        const reportDay = batchInfo?.reportDay;
+
         try {
-          await wareBatchApi.pushWareBatch({
+          const res = await wareBatchApi.pushWareBatch({
             id: batchId as number,
             deleteMissing: deleteMissing,
             username: values.username,
             password: values.password,
           });
-          successCount++;
-        } catch (error) {
-          console.error(`Sync batch ${batchId} failed:`, error);
-          failCount++;
+
+          const inserted = Number(res?.inserted ?? 0);
+          const updated = Number(res?.updated ?? 0);
+
+          if (inserted === 0 && updated === 0) {
+            // TKV phản hồi 200 nhưng không có bản ghi nào được thêm/sửa
+            results.push({
+              id: batchId,
+              code,
+              name,
+              tableCode,
+              reportName,
+              reportYear,
+              reportMonth,
+              reportDay,
+              status: "warning",
+              inserted: 0,
+              updated: 0,
+              errorMessage:
+                "Hệ thống TKV đã tiếp nhận yêu cầu nhưng ghi nhận 0 dòng thêm mới và 0 dòng cập nhật. Thực tế số liệu CHƯA được nạp vào kho dữ liệu TKV.",
+              advice:
+                "Vui lòng kiểm tra lại cấu hình keyColumns / scopeFilter của mẫu báo cáo hoặc kiểm tra xem file Excel có chứa dòng dữ liệu hợp lệ hay không.",
+            });
+          } else {
+            results.push({
+              id: batchId,
+              code,
+              name,
+              tableCode,
+              reportName,
+              reportYear,
+              reportMonth,
+              reportDay,
+              status: "success",
+              inserted,
+              updated,
+            });
+          }
+        } catch (err: any) {
+          console.error(`Sync batch ${batchId} failed:`, err);
+          let rawMsg = "Đồng bộ thất bại";
+          if (typeof err === "string") {
+            rawMsg = err;
+          } else if (err?.message) {
+            rawMsg = err.message;
+          } else if (err?.data?.message) {
+            rawMsg = err.data.message;
+          } else if (typeof err?.data === "string") {
+            rawMsg = err.data;
+          }
+
+          let friendlyMsg = rawMsg;
+          let advice = "Vui lòng liên hệ quản trị viên hoặc kiểm tra log hệ thống.";
+
+          if (
+            rawMsg.includes("401") ||
+            rawMsg.toLowerCase().includes("sai thông tin tài khoản") ||
+            rawMsg.toLowerCase().includes("sai tài khoản") ||
+            rawMsg.toLowerCase().includes("unauthorized")
+          ) {
+            friendlyMsg =
+              "Sai tài khoản hoặc mật khẩu kết nối API Vinacomin TKV. Không thể lấy mã xác thực Access Token.";
+            advice =
+              "Kiểm tra lại username/password đã nhập hoặc cấu hình lại tại trang 'Cấu hình tài khoản' (menu bên trái).";
+          } else if (rawMsg.includes("chưa có dữ liệu dòng")) {
+            friendlyMsg = "Batch này chưa có dòng dữ liệu nào để đồng bộ.";
+            advice = "Kiểm tra lại việc parse file Excel khi tạo batch.";
+          } else if (
+            rawMsg.includes("Connection refused") ||
+            rawMsg.includes("timeout") ||
+            rawMsg.includes("Failed to connect")
+          ) {
+            friendlyMsg = `Lỗi kết nối máy chủ Vinacomin: ${rawMsg}`;
+            advice = "Kiểm tra đường truyền VPN / mạng nội bộ kết nối tới hệ thống máy chủ Vinacomin.";
+          } else if (rawMsg.startsWith("Push error:")) {
+            try {
+              const jsonPart = rawMsg.replace(/^Push error:\s*/, "");
+              const parsed = JSON.parse(jsonPart);
+              friendlyMsg = `Lỗi từ Vinacomin TKV: ${parsed.message || jsonPart}`;
+            } catch {
+              friendlyMsg = `Lỗi từ Vinacomin TKV: ${rawMsg}`;
+            }
+            advice =
+              "Kiểm tra các trường dữ liệu và định dạng cột xem có khớp với bảng đích trên hệ thống Vinacomin hay không.";
+          }
+
+          results.push({
+            id: batchId,
+            code,
+            name,
+            tableCode,
+            reportName,
+            reportYear,
+            reportMonth,
+            reportDay,
+            status: "error",
+            inserted: 0,
+            updated: 0,
+            errorMessage: friendlyMsg,
+            advice,
+          });
         }
       }
 
-      messageApi.success(
-        `Đồng bộ thành công ${successCount} batch${failCount > 0 ? `, thất bại ${failCount}` : ""}`,
-      );
+      setSyncResults(results);
       setSyncModalVisible(false);
-      setSelectedIds([]);
-      form.resetFields();
       fetchBatches();
-    } catch (error: any) {
-      messageApi.error(error?.data || "Đồng bộ batch thất bại");
+
+      const successList = results.filter((r) => r.status === "success");
+      const warningList = results.filter((r) => r.status === "warning");
+      const errorList = results.filter((r) => r.status === "error");
+
+      if (warningList.length === 0 && errorList.length === 0) {
+        const totalIns = successList.reduce((acc, c) => acc + c.inserted, 0);
+        const totalUpd = successList.reduce((acc, c) => acc + c.updated, 0);
+        messageApi.success(
+          `Đồng bộ thành công ${successList.length} batch lên TKV! (Thêm mới: ${totalIns}, Cập nhật: ${totalUpd})`
+        );
+        setSelectedIds([]);
+        form.resetFields();
+      } else {
+        setSyncResultModalVisible(true);
+        if (successList.length > 0) {
+          messageApi.warning(
+            `Đồng bộ hoàn tất: ${successList.length} thành công, ${warningList.length} cảnh báo (0 dòng), ${errorList.length} thất bại.`
+          );
+        } else {
+          messageApi.error(`Đồng bộ thất bại toàn bộ ${results.length} batch. Vui lòng xem chi tiết lỗi.`);
+        }
+      }
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleCopyErrorReport = () => {
+    const lines = [
+      `=== BÁO CÁO KẾT QUẢ ĐỒNG BỘ DỮ LIỆU TKV ===`,
+      `Thời gian: ${new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}`,
+      `Tổng số batch xử lý: ${syncResults.length}`,
+      `Thành công: ${syncResults.filter((r) => r.status === "success").length}`,
+      `Cảnh báo (0 dòng): ${syncResults.filter((r) => r.status === "warning").length}`,
+      `Thất bại: ${syncResults.filter((r) => r.status === "error").length}`,
+      `-------------------------------------------`,
+    ];
+
+    syncResults.forEach((item, index) => {
+      lines.push(`[${index + 1}] Mã: ${item.code} | Báo cáo: ${item.name}`);
+      lines.push(
+        `    Bảng TKV: ${item.tableCode || "-"} | Năm/Tháng/Ngày: ${item.reportYear || "-"}/${item.reportMonth || "-"}/${item.reportDay || "-"}`
+      );
+      lines.push(`    Trạng thái: ${item.status.toUpperCase()}`);
+      if (item.status === "success") {
+        lines.push(`    Kết quả: Inserted ${item.inserted}, Updated ${item.updated}`);
+      } else {
+        lines.push(`    Nguyên nhân lỗi: ${item.errorMessage || "Không xác định"}`);
+        if (item.advice) {
+          lines.push(`    Gợi ý xử lý: ${item.advice}`);
+        }
+      }
+      lines.push(`-------------------------------------------`);
+    });
+
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      messageApi.success("Đã sao chép nội dung báo cáo lỗi vào clipboard!");
+    });
+  };
+
+  const handleRetryFailed = () => {
+    const failedIds = syncResults
+      .filter((r) => r.status !== "success")
+      .map((r) => r.id);
+
+    setSelectedIds(failedIds);
+    setSyncResultModalVisible(false);
+    setSyncModalVisible(true);
   };
 
   const handleClearFilter = () => {
@@ -305,30 +503,20 @@ export const SyncBatch: React.FC = () => {
       title: (
         <Checkbox
           checked={
-            selectedIds.length > 0 &&
-            selectedIds.length ===
-            filteredBatches.filter(
-              (b) => b.wareBatchStatus === "Da_Phe_Duyet" && !b.isPushed
-            ).length
+            selectableBatches.length > 0 &&
+            selectableBatches.every((b) => selectedIds.includes(b.id!))
           }
           indeterminate={
-            selectedIds.length > 0 &&
-            selectedIds.length <
-            filteredBatches.filter(
-              (b) => b.wareBatchStatus === "Da_Phe_Duyet" && !b.isPushed
-            ).length
+            selectableBatches.some((b) => selectedIds.includes(b.id!)) &&
+            !selectableBatches.every((b) => selectedIds.includes(b.id!))
           }
           onChange={(e) => {
             if (e.target.checked) {
-              const selectableIds = filteredBatches
-                .filter(
-                  (b) => b.wareBatchStatus === "Da_Phe_Duyet" && !b.isPushed
-                )
-                .map((b) => b.id!);
-              setSelectedIds(selectableIds);
-
+              const selectableIds = selectableBatches.map((b) => b.id!);
+              setSelectedIds(Array.from(new Set([...selectedIds, ...selectableIds])));
             } else {
-              setSelectedIds([]);
+              const selectableIdSet = new Set<string | number>(selectableBatches.map((b) => b.id!));
+              setSelectedIds(selectedIds.filter((id) => !selectableIdSet.has(id)));
             }
           }}
         />
@@ -338,19 +526,27 @@ export const SyncBatch: React.FC = () => {
       width: 60,
       align: "center",
       render: (_, record) => {
-        const isSelectable = record.wareBatchStatus === "Da_Phe_Duyet" && !record.isPushed;
+        const isSelectable = isBatchSelectable(record);
         return (
-          <Checkbox
-            checked={selectedIds.includes(record.id!)}
-            disabled={!isSelectable}
-            onChange={(e) => {
-              if (e.target.checked) {
-                setSelectedIds([...selectedIds, record.id!]);
-              } else {
-                setSelectedIds(selectedIds.filter((id) => id !== record.id));
-              }
-            }}
-          />
+          <Tooltip
+            title={
+              !isSelectable && record.isPushed && !deleteMissing
+                ? "Báo cáo này đã từng được đẩy lên TKV. Để cập nhật lại dữ liệu, hãy chọn chế độ 'Cập nhật dữ liệu' ở trên."
+                : ""
+            }
+          >
+            <Checkbox
+              checked={selectedIds.includes(record.id!)}
+              disabled={!isSelectable}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedIds([...selectedIds, record.id!]);
+                } else {
+                  setSelectedIds(selectedIds.filter((id) => id !== record.id));
+                }
+              }}
+            />
+          </Tooltip>
         );
       },
     },
@@ -415,17 +611,35 @@ export const SyncBatch: React.FC = () => {
       ),
     },
     {
-      title: "Upload",
+      title: "Upload TKV",
       dataIndex: "isPushed",
       key: "isPushed",
       align: "center",
-      width: 100,
+      width: 120,
       render: (value: boolean) => (
-        <Tooltip title={value ? "Đã đẩy dữ liệu" : "Chưa đẩy dữ liệu"}>
+        <Tooltip
+          title={
+            value
+              ? "Đã đồng bộ lên TKV (có ghi nhận dữ liệu Insert/Update > 0)"
+              : "Chưa đẩy dữ liệu lên TKV hoặc lần đẩy trước ghi nhận 0 dòng"
+          }
+        >
           {value ? (
-            <CheckCircleOutlined className="text-lg text-blue-600!" />
+            <Tag
+              color="success"
+              className="px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-medium border-0 bg-emerald-50 text-emerald-700"
+            >
+              <CheckCircleOutlined className="text-sm" />
+              <span>Đã đẩy</span>
+            </Tag>
           ) : (
-            <CloseCircleOutlined className="text-lg text-red-600!" />
+            <Tag
+              color="error"
+              className="px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-medium border-0 bg-rose-50 text-rose-700"
+            >
+              <CloseCircleOutlined className="text-sm" />
+              <span>Chưa đẩy</span>
+            </Tag>
           )}
         </Tooltip>
       ),
@@ -556,16 +770,29 @@ export const SyncBatch: React.FC = () => {
           </Tooltip>
         </div>
 
-        {/* Checkbox Xóa dữ liệu cũ được đặt ở đây */}
-        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-end">
+        {/* Chọn chế độ đồng bộ */}
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between flex-wrap gap-4">
+          <div className="text-sm text-gray-600">
+            {deleteMissing ? (
+              <span className="text-blue-700 font-medium flex items-center gap-1.5">
+                <InfoCircleOutlined className="text-blue-600" />
+                Chế độ <strong>Cập nhật dữ liệu</strong>: Cho phép chọn lại cả các báo cáo đã từng đồng bộ để đẩy đè / cập nhật lại dữ liệu lên TKV.
+              </span>
+            ) : (
+              <span className="text-gray-600 flex items-center gap-1.5">
+                <InfoCircleOutlined className="text-gray-500" />
+                Chế độ <strong>Đồng bộ dữ liệu mới</strong>: Chỉ cho phép chọn các báo cáo chưa từng đẩy dữ liệu lên TKV.
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <Radio.Group
               onChange={(e) => setDeleteMissing(e.target.value)}
               value={deleteMissing}
-              className="text-gray-700"
+              className="text-gray-700 font-medium"
             >
-              <Radio value={true}>Cập nhật dữ liệu</Radio>
               <Radio value={false}>Đồng bộ dữ liệu mới</Radio>
+              <Radio value={true}>Cập nhật dữ liệu</Radio>
             </Radio.Group>
           </div>
         </div>
@@ -748,6 +975,165 @@ export const SyncBatch: React.FC = () => {
               </Button>
             </Form.Item>
           </Form>
+        </div>
+      </Modal>
+
+      {/* Modal Báo cáo Kết quả & Form Lỗi Chi Tiết khi Đồng bộ TKV */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3 pb-3 border-b">
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                syncResults.some((r) => r.status === "error")
+                  ? "bg-red-100 text-red-600"
+                  : "bg-amber-100 text-amber-600"
+              }`}
+            >
+              {syncResults.some((r) => r.status === "error") ? (
+                <CloseCircleOutlined className="text-xl" />
+              ) : (
+                <WarningOutlined className="text-xl" />
+              )}
+            </div>
+            <div>
+              <div className="text-lg font-bold text-gray-800">
+                Kết quả & Báo cáo Lỗi Đồng bộ TKV
+              </div>
+              <div className="text-xs text-gray-500 font-normal">
+                Đối soát chi tiết trạng thái gửi giao dịch lên hệ thống Vinacomin TKV
+              </div>
+            </div>
+          </div>
+        }
+        open={syncResultModalVisible}
+        onCancel={() => setSyncResultModalVisible(false)}
+        footer={
+          <div className="flex justify-between items-center w-full pt-2 flex-wrap gap-2">
+            <Button
+              icon={<CopyOutlined />}
+              onClick={handleCopyErrorReport}
+            >
+              Sao chép nội dung lỗi
+            </Button>
+            <Space>
+              {syncResults.some((r) => r.status !== "success") && (
+                <Button
+                  type="primary"
+                  danger
+                  icon={<ReloadOutlined />}
+                  onClick={handleRetryFailed}
+                >
+                  Thử lại các batch lỗi ({syncResults.filter((r) => r.status !== "success").length})
+                </Button>
+              )}
+              <Button onClick={() => setSyncResultModalVisible(false)}>
+                Đóng
+              </Button>
+            </Space>
+          </div>
+        }
+        width={850}
+      >
+        <div className="py-3 space-y-4">
+          {/* Thẻ thống kê nhanh */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-center">
+              <div className="text-xs text-gray-500">Tổng batch</div>
+              <div className="text-xl font-bold text-gray-800">{syncResults.length}</div>
+            </div>
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-center">
+              <div className="text-xs text-emerald-600 font-medium">Thành công</div>
+              <div className="text-xl font-bold text-emerald-700">
+                {syncResults.filter((r) => r.status === "success").length}
+              </div>
+            </div>
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-center">
+              <div className="text-xs text-amber-600 font-medium">Cảnh báo (0 dòng)</div>
+              <div className="text-xl font-bold text-amber-700">
+                {syncResults.filter((r) => r.status === "warning").length}
+              </div>
+            </div>
+            <div className="p-3 bg-rose-50 rounded-lg border border-rose-200 text-center">
+              <div className="text-xs text-rose-600 font-medium">Thất bại</div>
+              <div className="text-xl font-bold text-rose-700">
+                {syncResults.filter((r) => r.status === "error").length}
+              </div>
+            </div>
+          </div>
+
+          {/* Cảnh báo quan trọng */}
+          <Alert
+            message="Lưu ý đối soát số liệu hệ thống TKV"
+            description="Các batch có trạng thái 'Thất bại' hoặc 'Cảnh báo (0 dòng)' thì dữ liệu thực tế CHƯA ĐƯỢC CẬP NHẬT vào hệ thống Vinacomin TKV. Trạng thái 'Đã duyệt' trên hệ thống nội bộ chỉ thể hiện cấp quản lý đã duyệt báo cáo, cần kiểm tra nguyên nhân lỗi bên dưới để xử lý triệt để."
+            type="warning"
+            showIcon
+            className="rounded-lg"
+          />
+
+          {/* Danh sách chi tiết các batch */}
+          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+            {syncResults.map((item) => (
+              <div
+                key={item.id}
+                className={`p-3.5 rounded-lg border transition-all ${
+                  item.status === "success"
+                    ? "bg-emerald-50/40 border-emerald-200"
+                    : item.status === "warning"
+                    ? "bg-amber-50/50 border-amber-300"
+                    : "bg-rose-50/50 border-rose-300"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3 mb-1.5 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-800">{item.code}</span>
+                    <span className="text-gray-400">•</span>
+                    <span className="font-medium text-gray-700">{item.name}</span>
+                    {item.tableCode && item.tableCode !== "-" && (
+                      <Tag color="cyan" className="font-mono text-xs">
+                        {item.tableCode}
+                      </Tag>
+                    )}
+                  </div>
+                  <div>
+                    {item.status === "success" && (
+                      <Tag color="success" className="font-medium">
+                        ✓ Thành công (Thêm: {item.inserted}, Sửa: {item.updated})
+                      </Tag>
+                    )}
+                    {item.status === "warning" && (
+                      <Tag color="warning" className="font-medium">
+                        ⚠ Cảnh báo: 0 dòng nạp vào TKV
+                      </Tag>
+                    )}
+                    {item.status === "error" && (
+                      <Tag color="error" className="font-medium">
+                        ✕ Thất bại
+                      </Tag>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 mb-2">
+                  Kỳ báo cáo: Năm {item.reportYear || "-"}{" "}
+                  {item.reportMonth ? `| Tháng ${item.reportMonth}` : ""}{" "}
+                  {item.reportDay ? `| Ngày ${item.reportDay}` : ""}
+                </div>
+
+                {item.errorMessage && (
+                  <div className="p-2.5 bg-white/90 rounded border border-gray-200 text-xs space-y-1">
+                    <div className="text-rose-700 font-medium">
+                      <strong>Chi tiết lỗi / phản hồi:</strong> {item.errorMessage}
+                    </div>
+                    {item.advice && (
+                      <div className="text-gray-600">
+                        <strong>Hướng dẫn xử lý:</strong> {item.advice}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </Modal>
 

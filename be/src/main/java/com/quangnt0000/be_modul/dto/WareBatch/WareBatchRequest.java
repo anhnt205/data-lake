@@ -16,6 +16,7 @@ public class WareBatchRequest {
     private String description;
     private MultipartFile file;
     private Integer wareTemplateId;
+    @Builder.Default
     private Boolean requiresApproval = true; // true nếu cần phê duyệt, false nếu không cần phê duyệt
     
     // Thời gian báo cáo (có thể null)

@@ -10,14 +10,11 @@ import com.quangnt0000.be_modul.dto.WareBatch.WareBatchRejectRequest;
 import com.quangnt0000.be_modul.dto.WareBatch.WareBatchRequest;
 import com.quangnt0000.be_modul.dto.WareBatch.WareBatchResponse;
 import com.quangnt0000.be_modul.dto.WareBatch.WareBatchSearch;
-import com.quangnt0000.be_modul.dto.WareCategory.WareCategoryResponse;
 import com.quangnt0000.be_modul.dto.dashboard.DashboardRequest;
 import com.quangnt0000.be_modul.dto.WareBatch.MyApprovalBatchResponse;
 import com.quangnt0000.be_modul.enums.WareBatchEnum;
-import com.quangnt0000.be_modul.enums.ReportType;
 import com.quangnt0000.be_modul.modal.DataLake.User;
 import com.quangnt0000.be_modul.modal.DataWH.WareBatch;
-import com.quangnt0000.be_modul.modal.DataWH.WareBatchAction;
 import com.quangnt0000.be_modul.modal.DataWH.WareBatchApproval;
 import com.quangnt0000.be_modul.modal.DataWH.WareDataRow;
 import com.quangnt0000.be_modul.modal.DataWH.WareMapping;
@@ -36,7 +33,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 @RequiredArgsConstructor
@@ -571,6 +567,12 @@ public class WareBatchService {
             );
         }
         List<WareDataRow> wareDataRows = wareDataRowService.getByBatchId(request.getId());
+        if (wareDataRows == null || wareDataRows.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Batch chưa có dữ liệu dòng nào để đồng bộ lên hệ thống TKV"
+            );
+        }
 
         List<WareMapping> filters = wareBatch.getWareTemplate().getWareMappings().stream()
                 .filter(WareMapping::getIsScopFilter)
@@ -874,7 +876,7 @@ public class WareBatchService {
             }
 
             // Kiểm tra isPushed
-            boolean isPushed = batchActionRepository.existsByWareBatchId(batch.getId());
+            boolean isPushed = batchActionRepository.existsSuccessfulPushByWareBatchId(batch.getId());
             
             // Build response
             MyApprovalBatchResponse response = MyApprovalBatchResponse.builder()

@@ -1,6 +1,5 @@
 package com.quangnt0000.be_modul.service.DataWH;
 
-import com.quangnt0000.be_modul.dto.PageResponse;
 import com.quangnt0000.be_modul.dto.WareTemplate.TableOption;
 import com.quangnt0000.be_modul.dto.WareTemplate.WareTemplateRequest;
 import com.quangnt0000.be_modul.dto.WareTemplate.WareTemplateResponse;

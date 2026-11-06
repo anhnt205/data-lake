@@ -46,13 +46,17 @@ axiosClient.interceptors.response.use(
         break;
 
       case 401:
-        if (requestUrl.includes("/user/login")) {
+        if (
+          requestUrl.includes("/user/login") ||
+          requestUrl.includes("/wh-batch/push") ||
+          requestUrl.includes("/ware-api")
+        ) {
           apiError = {
             status,
             message:
               typeof data === "string"
                 ? data
-                : data?.message || "Sai tài khoản hoặc mật khẩu",
+                : data?.message || "Sai tài khoản hoặc mật khẩu hệ thống",
             data,
           };
           break;

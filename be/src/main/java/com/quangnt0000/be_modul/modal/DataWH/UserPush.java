@@ -1,6 +1,5 @@
 package com.quangnt0000.be_modul.modal.DataWH;
 
-import com.quangnt0000.be_modul.modal.DataLake.Employee;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

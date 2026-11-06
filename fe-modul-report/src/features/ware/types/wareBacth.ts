@@ -22,6 +22,8 @@ export interface WareBatchResponse {
   myApprovalStatus: string;
   wareBatchStatus: string;
   canApprove: boolean;
+  tableCode?: string | null;
+  reportName?: string | null;
   reportYear?: number | null;
   reportMonth?: number | null;
   reportDay?: number | null;

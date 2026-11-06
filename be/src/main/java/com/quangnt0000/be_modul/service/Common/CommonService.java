@@ -1,7 +1,6 @@
 package com.quangnt0000.be_modul.service.Common;
 
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 
 import java.io.Serializable;

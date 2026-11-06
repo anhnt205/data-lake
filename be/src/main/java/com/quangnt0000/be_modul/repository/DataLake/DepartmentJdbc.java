@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
+@SuppressWarnings("unused")
 public class DepartmentJdbc {
     private final JdbcTemplate jdbcTemplate;
 

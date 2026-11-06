@@ -30,6 +30,7 @@ public class Target {
     YearMonth month;
 
     @OneToMany(mappedBy = "target")
+    @Builder.Default
     private List<TargetReport> reports = new ArrayList<>();
 
     @ManyToOne

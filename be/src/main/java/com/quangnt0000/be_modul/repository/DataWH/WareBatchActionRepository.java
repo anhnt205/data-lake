@@ -1,6 +1,5 @@
 package com.quangnt0000.be_modul.repository.DataWH;
 
-import com.quangnt0000.be_modul.modal.DataLake.Department;
 import com.quangnt0000.be_modul.modal.DataWH.WareBatchAction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,4 +23,11 @@ public interface WareBatchActionRepository extends JpaRepository<WareBatchAction
     
     boolean existsByWareBatchId(Integer wareBatchId);
 
+    @Query("""
+        SELECT (COUNT(wba) > 0)
+        FROM WareBatchAction wba
+        WHERE wba.wareBatch.id = :wareBatchId
+          AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
+    """)
+    boolean existsSuccessfulPushByWareBatchId(@Param("wareBatchId") Integer wareBatchId);
 }

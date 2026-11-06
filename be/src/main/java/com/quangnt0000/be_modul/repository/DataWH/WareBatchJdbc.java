@@ -2,29 +2,20 @@ package com.quangnt0000.be_modul.repository.DataWH;
 
 import com.quangnt0000.be_modul.dto.WareBatch.WareBatchResponse;
 import com.quangnt0000.be_modul.dto.WareBatch.WareBatchSearch;
-import com.quangnt0000.be_modul.dto.WareCategory.WareCategoryResponse;
 import com.quangnt0000.be_modul.dto.dashboard.DashboardRequest;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
 public class WareBatchJdbc {
     private final JdbcTemplate jdbcTemplate;
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
     public List<WareBatchResponse> search(WareBatchSearch request) {
         StringBuilder sql = new StringBuilder(
@@ -49,6 +40,7 @@ public class WareBatchJdbc {
                                 SELECT 1
                                 FROM ware_batch_action wba
                                 WHERE wba.ware_batch_id = wb.id
+                                  AND (COALESCE(wba.inserted, 0) > 0 OR COALESCE(wba.updated, 0) > 0)
                             )
                             THEN 'true'
                             ELSE 'false'
