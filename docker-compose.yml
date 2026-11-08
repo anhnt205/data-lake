@@ -26,9 +26,12 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8484:8080"
     environment:
       - TZ=Asia/Ho_Chi_Minh
+      - DB_URL=jdbc:postgresql://postgres:5432/report
+      - DB_USERNAME=admin
+      - DB_PASSWORD=admin
     networks:
       - backnet
     restart: unless-stopped
@@ -72,7 +75,7 @@ services:
     networks:
       - backnet
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d report"]
       interval: 10s
       timeout: 5s
       retries: 5

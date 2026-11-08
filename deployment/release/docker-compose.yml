@@ -23,6 +23,8 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
     networks:
       - backnet
     restart: unless-stopped
@@ -53,6 +55,8 @@ services:
       - POSTGRES_PASSWORD=admin
       - POSTGRES_DB=report
       - PGDATA=/var/lib/postgresql/data
+      - TZ=Asia/Ho_Chi_Minh
+      - PGTZ=Asia/Ho_Chi_Minh
     volumes:
       - report_postgres_data:/var/lib/postgresql/data
     ports:

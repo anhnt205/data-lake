@@ -8,11 +8,16 @@ export const formatVNDate = (iso?: string | null): string => {
   const trimmed = iso.trim();
   if (!trimmed) return "-";
 
+  // Normalize space to 'T' for cross-browser parsing (e.g. Safari)
+  const standardIso = trimmed.includes(" ") && !trimmed.includes("T")
+    ? trimmed.replace(" ", "T")
+    : trimmed;
+
   // Check if string already contains timezone info (Z or +/-HH:mm)
-  const hasTimezone = /([+-]\d{2}(:\d{2})?|Z)$/i.test(trimmed);
+  const hasTimezone = /([+-]\d{2}(:\d{2})?|Z)$/i.test(standardIso);
   // If backend returns a local datetime without timezone (e.g. "2026-09-22T08:03:54.803024"),
   // treat it as Vietnam time (+07:00) so that JavaScript doesn't parse it as UTC and add another 7 hours.
-  const isoStr = hasTimezone ? trimmed : `${trimmed}+07:00`;
+  const isoStr = hasTimezone ? standardIso : `${standardIso}+07:00`;
   
   const d = new Date(isoStr);
   if (isNaN(d.getTime())) return iso;
@@ -35,8 +40,12 @@ export const formatVNDateOnly = (iso?: string | null): string => {
   const trimmed = iso.trim();
   if (!trimmed) return "-";
 
-  const hasTimezone = /([+-]\d{2}(:\d{2})?|Z)$/i.test(trimmed);
-  const isoStr = hasTimezone ? trimmed : `${trimmed}+07:00`;
+  const standardIso = trimmed.includes(" ") && !trimmed.includes("T")
+    ? trimmed.replace(" ", "T")
+    : trimmed;
+
+  const hasTimezone = /([+-]\d{2}(:\d{2})?|Z)$/i.test(standardIso);
+  const isoStr = hasTimezone ? standardIso : `${standardIso}+07:00`;
   
   const d = new Date(isoStr);
   if (isNaN(d.getTime())) return iso;

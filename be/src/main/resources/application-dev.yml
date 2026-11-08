@@ -1,14 +1,16 @@
 spring:
   application:
     name: report
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
   servlet:
     multipart:
       max-file-size: 500MB
       max-request-size: 500MB
   datasource:
-    url: jdbc:postgresql://localhost:5434/report
-    username: admin
-    password: admin
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/report}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:admin}
   jpa:
     hibernate:
       ddl-auto: update

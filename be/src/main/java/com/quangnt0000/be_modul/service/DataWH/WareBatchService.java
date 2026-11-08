@@ -214,7 +214,12 @@ public class WareBatchService {
             if (!"ROW".equals(mapping.getFieldType())) continue;
 
             try {
-                int colIndex = Integer.parseInt(mapping.getCellAddress()) - 1;
+                int colIndex;
+                try {
+                    colIndex = Integer.parseInt(mapping.getCellAddress()) - 1;
+                } catch (NumberFormatException e) {
+                    continue;
+                }
                 Cell cell = row.getCell(colIndex);
 
                 if (cell == null) continue;

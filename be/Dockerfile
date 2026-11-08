@@ -17,7 +17,8 @@ RUN mvn -B package -DskipTests
 ############################
 FROM eclipse-temurin:21-jre-alpine
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl tzdata
+ENV TZ=Asia/Ho_Chi_Minh
 RUN addgroup -S spring && adduser -S spring -G spring
 
 WORKDIR /app
@@ -32,6 +33,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75"
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Ho_Chi_Minh"
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

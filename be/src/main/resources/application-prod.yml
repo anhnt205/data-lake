@@ -1,6 +1,8 @@
 spring:
   application:
     name: report
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
   servlet:
     multipart:
       max-file-size: 500MB

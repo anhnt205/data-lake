@@ -17,7 +17,8 @@ RUN npm i
 ## Get all the code needed to run the app
 COPY . .
 
-## React buid for production environment (smaller size)
+## React build for production environment (tăng giới hạn bộ nhớ cho Node để tránh Out of Memory)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
 ## Create an HTTP web server based on nginx image;
